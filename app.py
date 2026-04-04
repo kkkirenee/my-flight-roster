@@ -71,26 +71,27 @@ with col2:
     if state.get("eventClick"):
         f_no = state["eventClick"]["event"]["title"].strip()
         
-        # --- 核心邏輯修正 ---
-        stay_flights = ["150", "130", "731"] # 這些是過夜班
+        # --- 核心邏輯修正：改用「排除法」 ---
+        # 只要不是這些班號，我們就預設它是當天來回，自動抓下一號
+        stay_and_rtn_flights = ["150", "151", "130", "131", "731", "732"] 
         search_list = [f_no]
         
-        # 判定：如果是偶數(去程) 且 不是過夜班，才自動抓下一個回程
-        try:
-            val = int(f_no)
-            if val % 2 == 0 and f_no not in stay_flights:
-                search_list.append(str(val + 1))
-        except:
-            pass # 非數字班號不處理
+        # 只有當點選的班號「不在」上面的清單中，才自動搜尋下一號
+        if f_no not in stay_and_rtn_flights:
+            try:
+                next_no = str(int(f_no) + 1)
+                search_list.append(next_no)
+            except:
+                pass
             
         found_any = False
         for target in search_list:
+            # 在 CSV 中尋找包含該數字的列
             match = df[df['班號'].str.contains(target)]
             if not match.empty:
                 r = match.iloc[0]
                 found_any = True
-                # 標籤顯示：如果是當天來回中的第一趟顯示 GO，第二趟顯示 RTN，其餘顯示單趟
-                tag_label = "GO" if (len(search_list) > 1 and target == f_no) else ("RTN" if (len(search_list) > 1) else "FLIGHT")
+                tag_label = "GO" if (len(search_list) > 1 and target == f_no) else ("RTN" if (len(search_list) > 1) else "STAY")
                 
                 st.markdown(f"""
                     <div class="report-card">
