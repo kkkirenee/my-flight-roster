@@ -16,17 +16,16 @@ st.markdown(f"""
     .report-card {{
         background: #1A1A1A; border-radius: 15px; padding: 20px;
         border: 1px solid {HOT_PINK}; box-shadow: 0 0 15px rgba(255,46,99,0.2);
-        margin-bottom: 10px;
+        margin-bottom: 12px;
     }}
-    .rtn-tag {{
+    .tag {{
         background: {HOT_PINK}; color: white; padding: 2px 8px;
-        border-radius: 4px; font-size: 0.8rem; font-weight: bold;
+        border-radius: 4px; font-size: 0.75rem; font-weight: 800;
     }}
     </style>
     """, unsafe_allow_html=True)
 
 # --- 2. 班表資料 ---
-# 這裡只需填寫妳「報到當天」的班號
 ROSTER = {
     "2026-04-03": "116", "2026-04-05": "517", "2026-04-08": "108",
     "2026-04-10": "915", "2026-04-12": "150", "2026-04-13": "151",
@@ -38,11 +37,8 @@ ROSTER = {
 calendar_events = []
 for date, flight in ROSTER.items():
     calendar_events.append({
-        "title": flight,
-        "start": date,
-        "end": date,
-        "backgroundColor": HOT_PINK,
-        "borderColor": HOT_PINK
+        "title": flight, "start": date, "end": date,
+        "backgroundColor": HOT_PINK, "borderColor": HOT_PINK
     })
 
 # --- 3. 讀取 CSV ---
@@ -75,37 +71,41 @@ with col2:
     if state.get("eventClick"):
         f_no = state["eventClick"]["event"]["title"].strip()
         
-        # --- 核心邏輯：判定是否要抓回程 ---
-        # 如果班號是偶數(例如 116)，且它不是過夜班(150, 130, 731)，則自動尋找下一個號碼(117)
-        stay_flights = ["150", "130", "731"]
+        # --- 核心邏輯修正 ---
+        stay_flights = ["150", "130", "731"] # 這些是過夜班
         search_list = [f_no]
         
-        if f_no not in stay_flights and f_no.isdigit():
-            next_no = str(int(f_no) + 1)
-            search_list.append(next_no)
-        
-        found = False
+        # 判定：如果是偶數(去程) 且 不是過夜班，才自動抓下一個回程
+        try:
+            val = int(f_no)
+            if val % 2 == 0 and f_no not in stay_flights:
+                search_list.append(str(val + 1))
+        except:
+            pass # 非數字班號不處理
+            
+        found_any = False
         for target in search_list:
             match = df[df['班號'].str.contains(target)]
             if not match.empty:
                 r = match.iloc[0]
-                found = True
-                type_label = "GO" if target == f_no and len(search_list)>1 else ("RTN" if len(search_list)>1 else "STAY")
+                found_any = True
+                # 標籤顯示：如果是當天來回中的第一趟顯示 GO，第二趟顯示 RTN，其餘顯示單趟
+                tag_label = "GO" if (len(search_list) > 1 and target == f_no) else ("RTN" if (len(search_list) > 1) else "FLIGHT")
                 
                 st.markdown(f"""
                     <div class="report-card">
-                        <div style='display:flex; justify-content:space-between; align-items:center;'>
+                        <div style='display:flex; justify-content:space-between;'>
                             <h2 style='color:{HOT_PINK}; margin:0;'>CI {target}</h2>
-                            <span class="rtn-tag">{type_label}</span>
+                            <span class="tag">{tag_label}</span>
                         </div>
-                        <p>📍 <b>目的地:</b> {r['目的地']}</p>
+                        <p style='margin:10px 0 5px 0;'>📍 <b>目的地:</b> {r['目的地']}</p>
                         <p>⏰ <b>報到:</b> <span style='color:{HOT_PINK}'>{r.get('報到時間', '--:--')}</span></p>
                         <hr style='border-color:#333; margin:10px 0;'>
-                        <p style='margin:0;'>🛫 {r['起飛時間']} | 🛬 {r['落地時間']}</p>
+                        <p style='margin:0; font-size:0.9rem; opacity:0.8;'>🛫 {r['起飛時間']} | 🛬 {r['落地時間']}</p>
                     </div>
                 """, unsafe_allow_html=True)
         
-        if not found:
-            st.warning(f"找不到 {f_no} 的資料")
+        if not found_any:
+            st.warning(f"CSV 裡找不到班號 {f_no} 的資料")
     else:
         st.write("點擊月曆查看詳情")
