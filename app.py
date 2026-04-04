@@ -3,9 +3,8 @@ import pandas as pd
 from streamlit_calendar import calendar
 from datetime import datetime
 
-# --- 0. 自動獲取今天日期 ---
-# 2026-04-05
-today_str = datetime.now().strftime("%Y-%m-%d")
+# --- 0. 獲取今天日期 ---
+today_date = datetime.now().strftime("%Y-%m-%d")
 
 # --- 1. 頁面與風格設定 ---
 st.set_page_config(page_title="CAL Calendar", page_icon="📅", layout="wide")
@@ -18,16 +17,18 @@ st.markdown(f"""
     .stApp {{ background-color: {BG_BLACK}; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     .report-card {{
-        background: #1A1A1A; border-radius: 15px; padding: 20px;
-        border: 1px solid {HOT_PINK}; box-shadow: 0 0 15px rgba(255,46,99,0.2);
-        margin-bottom: 12px;
+        background: #1A1A1A; border-radius: 20px; padding: 25px;
+        border: 2px solid {HOT_PINK}; box-shadow: 0 0 20px rgba(255,46,99,0.3);
+        margin-bottom: 15px;
     }}
     .tag {{
-        background: {HOT_PINK}; color: white; padding: 2px 8px;
-        border-radius: 4px; font-size: 0.75rem; font-weight: 800;
+        background: {HOT_PINK}; color: white; padding: 3px 10px;
+        border-radius: 6px; font-size: 0.9rem; font-weight: 900;
     }}
-    .fc .fc-day-today {{
-        background: rgba(255, 46, 99, 0.2) !important;
+    /* 讓 Streamlit 的按鈕變粉紅色 */
+    div.stButton > button {{
+        background-color: {HOT_PINK}; color: white; border: none;
+        font-weight: 800; width: 100%; border-radius: 10px; height: 3em;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -54,61 +55,61 @@ try:
     df.columns = df.columns.str.strip()
     df['班號'] = df['班號'].astype(str)
 except:
-    st.error("找不到 my_flights.csv")
+    st.error("找不到 CSV")
     st.stop()
 
 # --- 4. 顯示介面 ---
 st.title("💖 FLIGHT CALENDAR")
 
+# 建立一個大大的 Today 按鈕
+if st.button("📍 CLICK FOR TODAY'S FLIGHT"):
+    st.session_state.current_flight = ROSTER.get(today_date)
+    st.toast(f"Checking flight for {today_date}...")
+
 col1, col2 = st.columns([2.5, 1])
 
 with col1:
     calendar_options = {
-        "headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth"},
+        "headerToolbar": {"left": "prev,next", "center": "title", "right": "dayGridMonth"},
         "initialView": "dayGridMonth",
-        "initialDate": today_str,
-        "contentHeight": 650,
+        "contentHeight": "auto",
     }
-    state = calendar(events=calendar_events, options=calendar_options, key="roster_cal")
+    custom_css = ".fc-event-title { font-size: 1.6em !important; font-weight: 900 !important; }"
+    state = calendar(events=calendar_events, options=calendar_options, custom_css=custom_css, key="roster_cal")
 
 with col2:
     st.subheader("📋 Flight Details")
     
-    # --- 關鍵修正：優先判定「點擊」，若沒點擊則顯示「今天」 ---
-    target_flight = None
-    
+    # 判定要顯示哪個班號：優先顯示點擊的，沒點擊則看 Today 按鈕有沒有被按
+    target_f = None
     if state.get("eventClick"):
-        target_flight = state["eventClick"]["event"]["title"].strip()
-    elif today_str in ROSTER:
-        target_flight = ROSTER[today_str]
-        st.write(f"🌟 **今日班表預覽 ({today_str})**")
+        target_f = state["eventClick"]["event"]["title"].strip()
+    elif "current_flight" in st.session_state:
+        target_f = st.session_state.current_flight
 
-    if target_flight:
-        stay_and_rtn_flights = ["150", "151", "130", "131", "731", "732"] 
-        search_list = [target_flight]
-        
-        if target_flight not in stay_and_rtn_flights:
-            try:
-                val = int(target_flight)
-                search_list.append(str(val + 1))
+    if target_f:
+        stay_rtn = ["150", "151", "130", "131", "731", "732"]
+        search_list = [target_f]
+        if target_f not in stay_rtn:
+            try: search_list.append(str(int(target_f) + 1))
             except: pass
             
-        for target in search_list:
-            match = df[df['班號'].str.contains(target)]
+        for t in search_list:
+            match = df[df['班號'].str.contains(t)]
             if not match.empty:
                 r = match.iloc[0]
-                tag_label = "GO" if (len(search_list) > 1 and target == target_flight) else ("RTN" if (len(search_list) > 1) else "STAY")
+                label = "GO" if (len(search_list)>1 and t==target_f) else ("RTN" if len(search_list)>1 else "STAY")
                 st.markdown(f"""
                     <div class="report-card">
                         <div style='display:flex; justify-content:space-between;'>
-                            <h2 style='color:{HOT_PINK}; margin:0;'>CI {target}</h2>
-                            <span class="tag">{tag_label}</span>
+                            <h2 style='color:{HOT_PINK}; margin:0;'>CI {t}</h2>
+                            <span class="tag">{label}</span>
                         </div>
-                        <p style='margin:10px 0 5px 0;'>📍 <b>目的地:</b> {r['目的地']}</p>
-                        <p>⏰ <b>報到:</b> <span style='color:{HOT_PINK}'>{r.get('報到時間', '--:--')}</span></p>
-                        <hr style='border-color:#333; margin:10px 0;'>
-                        <p style='margin:0; font-size:0.9rem; opacity:0.8;'>🛫 {r['起飛時間']} | 🛬 {r['落地時間']}</p>
+                        <p style='margin:15px 0 5px 0; font-size:1.2rem;'>📍 <b>{r['目的地']}</b></p>
+                        <p style='font-size:1.1rem;'>⏰ 報到: <span style='color:{HOT_PINK}'>{r.get('報到時間','--:--')}</span></p>
+                        <hr style='border-color:#444;'>
+                        <p style='margin:0; font-size:1.1rem;'>🛫 {r['起飛時間']} | 🛬 {r['落地時間']}</p>
                     </div>
                 """, unsafe_allow_html=True)
     else:
-        st.write("✨ 點擊班號查看詳情")
+        st.write("點擊月曆班號，或按上方按鈕看今天班表")
