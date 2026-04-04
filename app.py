@@ -13,7 +13,7 @@ today_str = now_tw.strftime("%Y-%m-%d")
 # --- 1. 頁面與風格設定 ---
 st.set_page_config(page_title="CAL Calendar", page_icon="📅", layout="wide")
 
-HOT_PINK = "#C54E71"
+HOT_PINK = "#F07699"
 BG_BLACK = "#0E0E0E"
 
 st.markdown(f"""
