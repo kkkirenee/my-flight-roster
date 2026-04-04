@@ -32,7 +32,7 @@ ROSTER = {
 calendar_events = []
 for date, flight in ROSTER.items():
     calendar_events.append({
-        "title": f"CI {flight}", # ✨ 關鍵修改：這裡加了一個空格，變成 CI 116
+        "title": f"{flight}", # ✨ 關鍵修改：拿掉 CI，只留數字
         "start": date,
         "end": date,
         "backgroundColor": HOT_PINK,
@@ -67,9 +67,10 @@ with col1:
     
     custom_css = """
         .fc-event-title {
-            font-size: 1.3em !important; 
-            font-weight: 700 !important;
+            font-size: 1.4em !important; /* 數字可以再稍微大一點 */
+            font-weight: 800 !important;
             padding: 5px !important;
+            text-align: center !important;
         }
         .fc-daygrid-event {
             margin-top: 2px !important;
@@ -87,11 +88,10 @@ with col2:
     st.subheader("📋 Flight Details")
     
     if state.get("eventClick"):
-        clicked_title = state["eventClick"]["event"]["title"]
+        # 取得點擊的純數字標題
+        search_no = state["eventClick"]["event"]["title"].strip()
         
-        # 修正搜尋邏輯：不管有沒有空格，都把 CI 拿掉只留數字去對比
-        search_no = clicked_title.replace("CI", "").strip()
-        
+        # 在 CSV 的「班號」欄位搜尋包含這個數字的列
         match = df[df['班號'].astype(str).str.contains(search_no)]
         
         if not match.empty:
