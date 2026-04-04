@@ -23,7 +23,7 @@ st.markdown(f"""
     
     /* 🚀 月曆字體：極致放大 */
     .fc-event-title {{ 
-        font-size: 1.8em !important; /* 從 1.6 升級到 1.8 */
+        font-size: 1.6em !important;
         font-weight: 900 !important; 
         color: white !important;
         text-align: center !important;
