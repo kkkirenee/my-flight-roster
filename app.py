@@ -12,9 +12,9 @@ today_str = now_tw.strftime("%Y-%m-%d")
 # --- 1. 頁面與風格設定 ---
 st.set_page_config(page_title="CAL Calendar", page_icon="📅", layout="wide")
 
-# ✨ 調整為妳要的：偏暖、淡一點點的粉紅
-WARM_PINK = "#FFB7C5" 
-HOT_PINK_VIBE = "#FF8DA1" # 稍微再亮一點點，保證月曆數字夠跳
+# ✨ 這裡定義妳最愛的粉紅色調
+MY_PINK = "#FF8DA1" # 亮粉紅
+WARM_PINK = "#FFB7C5" # 淡粉紅 (用於邊框與按鈕)
 BG_BLACK = "#0E0E0E"
 
 st.markdown(f"""
@@ -31,25 +31,33 @@ st.markdown(f"""
         background: {WARM_PINK}; color: #333; padding: 4px 12px;
         border-radius: 6px; font-size: 0.9rem; font-weight: 900;
     }}
-    /* 大按鈕樣式 */
+    /* 今天按鈕 */
     div.stButton > button {{
         background-color: {WARM_PINK}; color: #333; border: none;
         font-weight: 900; width: 100%; border-radius: 12px; height: 3.5em;
         font-size: 1.1rem;
     }}
     
-    /* ✨ 重點回歸：月曆字體必須大！底色必須亮！ */
+    /* 🚀 月曆核心樣式：粉紅底、大白字 */
     .fc-event-title {{ 
-        font-size: 1.6em !important; /* 巨大字體回歸 */
+        font-size: 1.6em !important; 
         font-weight: 900 !important; 
-        color: white !important; /* 白色字體回歸 */
+        color: white !important; /* 絕對是白色！ */
         text-align: center !important;
     }}
     .fc-dayGridMonth-view .fc-event {{
-        background-color: {HOT_PINK_VIBE} !important;
-        border-color: {HOT_PINK_VIBE} !important;
+        background-color: {MY_PINK} !important; /* 絕對是粉紅！ */
+        border-color: {MY_PINK} !important;
         border-radius: 8px !important;
         padding: 5px 0 !important;
+    }}
+    .fc .fc-button-primary {{
+        background-color: #333 !important;
+        border-color: {WARM_PINK} !important;
+        color: {WARM_PINK} !important;
+    }}
+    .fc .fc-day-today {{
+        background: rgba(255, 141, 161, 0.2) !important;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -73,7 +81,7 @@ try:
     df.columns = df.columns.str.strip()
     df['班號'] = df['班號'].astype(str).str.replace('CI', '').str.strip()
 except:
-    st.error("CSV Error")
+    st.error("CSV讀取失敗")
     st.stop()
 
 # --- 4. 顯示介面 ---
@@ -119,12 +127,11 @@ with col2:
                             <h2 style='color:{WARM_PINK}; margin:0;'>CI {t}</h2>
                             <span class="tag">{tag}</span>
                         </div>
-                        <p style='margin:15px 0 5px 0; font-size:1.4rem;'>📍 <b>{r['目的地']}</b></p>
-                        <p style='font-size:1.1rem;'>⏰ 報到: <span style='color:{WARM_PINK}; font-weight:800;'>{r.get('報到時間','--:--')}</span></p>
-                        <hr style='border-color:#444;'>
-                        <p style='margin:0; font-size:1.1rem;'>🛫 {r['起飛時間']} | 🛬 {r['落地時間']}</p>
+                        <p style='margin:15px 0 5px 0; font-size:1.4rem; font-weight:700;'>📍 <b>{r['目的地']}</b></p>
+                        <p style='font-size:1.1rem; color:#CCC;'>⏰ 報到: <span style='color:{WARM_PINK}; font-weight:800;'>{r.get('報到時間','--:--')}</span></p>
+                        <hr style='border-color:#444; margin:15px 0;'>
+                        <p style='margin:0; font-size:1.1rem; color:#AAA;'>🛫 {r['起飛時間']} | 🛬 {r['落地時間']}</p>
                     </div>
                 """, unsafe_allow_html=True)
     else:
         st.write("✨ 點擊班號，或按大按鈕看今天班表")
-        
