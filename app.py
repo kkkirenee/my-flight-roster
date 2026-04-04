@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
 from streamlit_calendar import calendar
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 
-# --- 0. 時區校準 ---
+# --- 0. 時區校準 (台灣時區) ---
+# 強制抓取台北時間，避免伺服器時差導致 5 號變成 4 號
 tw_tz = pytz.timezone('Asia/Taipei')
 now_tw = datetime.now(tw_tz)
 today_str = now_tw.strftime("%Y-%m-%d")
@@ -12,55 +13,30 @@ today_str = now_tw.strftime("%Y-%m-%d")
 # --- 1. 頁面與風格設定 ---
 st.set_page_config(page_title="CAL Calendar", page_icon="📅", layout="wide")
 
-WARM_PINK = "#FFB7C5"  # 暖粉紅
-EVENT_PINK = "#FF8DA1" # 亮粉紅
+HOT_PINK = "#FF2E63"
 BG_BLACK = "#0E0E0E"
 
 st.markdown(f"""
     <style>
-    /* 全域背景 */
     .stApp {{ background-color: {BG_BLACK}; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
-    
-    /* 🚀 終極暴力法：強制把所有月曆相關的藍色通通洗掉 */
-    div[data-testid="stHtml"] *, 
-    .fc-event, 
-    .fc-event-main, 
-    .fc-daygrid-event, 
-    .fc-v-event, 
-    .fc-h-event,
-    .fc-event-active,
-    .fc-event-future {{
-        background-color: {EVENT_PINK} !important;
-        border-color: {EVENT_PINK} !important;
-        background: {EVENT_PINK} !important;
-        color: white !important;
-        box-shadow: none !important;
-    }}
-    
-    /* 🚀 數字字體：放大到 2.2em 並確保是白色 */
-    .fc-event-title, .fc-event-main-frame {{ 
-        font-size: 2.2em !important; 
-        font-weight: 900 !important; 
-        color: white !important;
-        text-align: center !important;
-    }}
-
-    /* 詳情卡片樣式 */
     .report-card {{
         background: #1A1A1A; border-radius: 20px; padding: 25px;
-        border: 2px solid {WARM_PINK}; box-shadow: 0 0 20px rgba(255,183,197,0.3);
+        border: 2px solid {HOT_PINK}; box-shadow: 0 0 20px rgba(255,46,99,0.3);
         margin-bottom: 15px;
     }}
     .tag {{
-        background: {WARM_PINK}; color: #333; padding: 4px 12px;
+        background: {HOT_PINK}; color: white; padding: 4px 12px;
         border-radius: 6px; font-size: 0.9rem; font-weight: 900;
     }}
-
-    /* 大按鈕樣式 */
+    /* 自定義 Today 大按鈕樣式 */
     div.stButton > button {{
-        background-color: {WARM_PINK}; color: #333; border: none;
+        background-color: {HOT_PINK}; color: white; border: none;
         font-weight: 900; width: 100%; border-radius: 12px; height: 3.5em;
+        font-size: 1.1rem; transition: 0.3s;
+    }}
+    div.stButton > button:hover {{
+        background-color: #ff4d7d; transform: scale(1.02);
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -75,14 +51,10 @@ ROSTER = {
 }
 
 calendar_events = []
-for d, f in ROSTER.items():
+for date_key, flight in ROSTER.items():
     calendar_events.append({
-        "title": f, 
-        "start": d, 
-        "end": d,
-        "backgroundColor": EVENT_PINK,
-        "borderColor": EVENT_PINK,
-        "allDay": True # 強制設為全天事件，避免它出現時間點的樣式
+        "title": flight, "start": date_key, "end": date_key,
+        "backgroundColor": HOT_PINK, "borderColor": HOT_PINK
     })
 
 # --- 3. 讀取 CSV ---
@@ -91,14 +63,18 @@ try:
     df.columns = df.columns.str.strip()
     df['班號'] = df['班號'].astype(str).str.replace('CI', '').str.strip()
 except:
-    st.error("CSV 讀取失敗")
+    st.error("找不到 CSV 資料")
     st.stop()
 
 # --- 4. 顯示介面 ---
 st.title("💖 FLIGHT CALENDAR")
 
+# 這裡點下去，我們直接強行把 target 設定為「今天的班號」
 if st.button(f"📍 SHOW TODAY'S FLIGHT ({today_str})"):
-    st.session_state.sel_f = ROSTER.get(today_str, "None")
+    if today_str in ROSTER:
+        st.session_state.selected_f = ROSTER[today_str]
+    else:
+        st.session_state.selected_f = "None"
 
 col1, col2 = st.columns([2.5, 1])
 
@@ -108,42 +84,50 @@ with col1:
         "initialView": "dayGridMonth",
         "initialDate": today_str,
         "contentHeight": "auto",
-        "eventColor": EVENT_PINK, # 第五重保險
-        "displayEventTime": False, # 絕對不要顯示時間
     }
-    state = calendar(events=calendar_events, options=calendar_options, key="roster_cal")
+    # 字體維持最大最粗
+    custom_css = ".fc-event-title { font-size: 1.6em !important; font-weight: 900 !important; }"
+    state = calendar(events=calendar_events, options=calendar_options, custom_css=custom_css, key="roster_cal")
 
 with col2:
     st.subheader("📋 Flight Details")
-    target = None
+    
+    # 決定要抓哪一班的詳細資料
+    final_target = None
     if state.get("eventClick"):
-        target = state["eventClick"]["event"]["title"].strip()
-    elif "sel_f" in st.session_state:
-        target = st.session_state.sel_f
+        final_target = state["eventClick"]["event"]["title"].strip()
+    elif "selected_f" in st.session_state:
+        final_target = st.session_state.selected_f
 
-    if target and target != "None":
+    if final_target and final_target != "None":
         stay_list = ["150", "151", "130", "131", "731", "732"]
-        s_list = [target]
-        if target not in stay_list:
-            try: s_list.append(str(int(target) + 1))
+        search_list = [final_target]
+        # 如果不是過夜班，自動加一號
+        if final_target not in stay_list:
+            try: search_list.append(str(int(final_target) + 1))
             except: pass
             
-        for t in s_list:
-            match = df[df['班號'] == t]
+        found = False
+        for t in search_list:
+            match = df[df['班號'].str.contains(t)]
             if not match.empty:
                 r = match.iloc[0]
-                tag_txt = "GO" if (len(s_list)>1 and t==target) else ("RTN" if len(s_list)>1 else "STAY")
+                found = True
+                tag = "GO" if (len(search_list)>1 and t==final_target) else ("RTN" if len(search_list)>1 else "STAY")
                 st.markdown(f"""
                     <div class="report-card">
                         <div style='display:flex; justify-content:space-between; align-items:center;'>
-                            <h2 style='color:{WARM_PINK}; margin:0;'>CI {t}</h2>
-                            <span class="tag">{tag_txt}</span>
+                            <h2 style='color:{HOT_PINK}; margin:0;'>CI {t}</h2>
+                            <span class="tag">{tag}</span>
                         </div>
-                        <p style='margin:15px 0 5px 0; font-size:1.4rem; font-weight:700;'>📍 <b>{r['目的地']}</b></p>
-                        <p style='font-size:1.1rem; color:#CCC;'>⏰ 報到: <span style='color:{WARM_PINK}; font-weight:800;'>{r.get('報到時間','--:--')}</span></p>
-                        <hr style='border-color:#444; margin:15px 0;'>
-                        <p style='margin:0; font-size:1.1rem; color:#AAA;'>🛫 {r['起飛時間']} | 🛬 {r['落地時間']}</p>
+                        <p style='margin:15px 0 5px 0; font-size:1.3rem;'>📍 <b>{r['目的地']}</b></p>
+                        <p style='font-size:1.1rem;'>⏰ 報到: <span style='color:{HOT_PINK}'>{r.get('報到時間','--:--')}</span></p>
+                        <hr style='border-color:#444;'>
+                        <p style='margin:0; font-size:1.1rem;'>🛫 {r['起飛時間']} | 🛬 {r['落地時間']}</p>
                     </div>
                 """, unsafe_allow_html=True)
+        if not found: st.warning(f"CSV 裡找不到 {final_target}")
+    elif final_target == "None":
+        st.info("今天沒有排班喔，好好休息！☕")
     else:
-        st.write("✨ 點擊班號，或按大按鈕看今天班表")
+        st.write("點擊月曆班號，或按大按鈕看今天班表")
