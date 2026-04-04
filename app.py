@@ -4,7 +4,7 @@ from streamlit_calendar import calendar
 from datetime import datetime
 import pytz
 
-# --- 0. 時區校準 (台灣時區) ---
+# --- 0. 時區校準 ---
 tw_tz = pytz.timezone('Asia/Taipei')
 now_tw = datetime.now(tw_tz)
 today_str = now_tw.strftime("%Y-%m-%d")
@@ -12,9 +12,9 @@ today_str = now_tw.strftime("%Y-%m-%d")
 # --- 1. 頁面與風格設定 ---
 st.set_page_config(page_title="CAL Calendar", page_icon="📅", layout="wide")
 
-# ✨ 這裡定義妳最愛的粉紅色調
-MY_PINK = "#FF8DA1" # 亮粉紅
-WARM_PINK = "#FFB7C5" # 淡粉紅 (用於邊框與按鈕)
+# 🌸 暖粉紅色調定義
+WARM_PINK = "#FFB7C5"  # 邊框與按鈕用的淡粉
+EVENT_PINK = "#FF8DA1" # 月曆格子用的亮粉
 BG_BLACK = "#0E0E0E"
 
 st.markdown(f"""
@@ -22,42 +22,42 @@ st.markdown(f"""
     .stApp {{ background-color: {BG_BLACK}; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
+    /* 🚀 暴力破除藍色：強制定義月曆格子顏色 */
+    .fc-v-event, .fc-h-event, .fc-event {{
+        background-color: {EVENT_PINK} !important;
+        border-color: {EVENT_PINK} !important;
+        display: block !important;
+    }}
+    
+    .fc-event-title {{ 
+        font-size: 1.6em !important; 
+        font-weight: 900 !important; 
+        color: white !important; /* 巨大白字 */
+        text-align: center !important;
+    }}
+
     .report-card {{
         background: #1A1A1A; border-radius: 20px; padding: 25px;
         border: 2px solid {WARM_PINK}; box-shadow: 0 0 20px rgba(255,183,197,0.3);
         margin-bottom: 15px;
     }}
+    
     .tag {{
         background: {WARM_PINK}; color: #333; padding: 4px 12px;
         border-radius: 6px; font-size: 0.9rem; font-weight: 900;
     }}
-    /* 今天按鈕 */
+
+    /* Today 大按鈕 */
     div.stButton > button {{
         background-color: {WARM_PINK}; color: #333; border: none;
         font-weight: 900; width: 100%; border-radius: 12px; height: 3.5em;
-        font-size: 1.1rem;
     }}
     
-    /* 🚀 月曆核心樣式：粉紅底、大白字 */
-    .fc-event-title {{ 
-        font-size: 1.6em !important; 
-        font-weight: 900 !important; 
-        color: white !important; /* 絕對是白色！ */
-        text-align: center !important;
-    }}
-    .fc-dayGridMonth-view .fc-event {{
-        background-color: {MY_PINK} !important; /* 絕對是粉紅！ */
-        border-color: {MY_PINK} !important;
-        border-radius: 8px !important;
-        padding: 5px 0 !important;
-    }}
+    /* 修正按鈕與標題顏色 */
     .fc .fc-button-primary {{
         background-color: #333 !important;
         border-color: {WARM_PINK} !important;
         color: {WARM_PINK} !important;
-    }}
-    .fc .fc-day-today {{
-        background: rgba(255, 141, 161, 0.2) !important;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -73,7 +73,12 @@ ROSTER = {
 
 calendar_events = []
 for d, f in ROSTER.items():
-    calendar_events.append({"title": f, "start": d, "end": d})
+    calendar_events.append({
+        "title": f, 
+        "start": d, 
+        "end": d,
+        "color": EVENT_PINK # 雙重保險
+    })
 
 # --- 3. 讀取 CSV ---
 try:
@@ -128,9 +133,9 @@ with col2:
                             <span class="tag">{tag}</span>
                         </div>
                         <p style='margin:15px 0 5px 0; font-size:1.4rem; font-weight:700;'>📍 <b>{r['目的地']}</b></p>
-                        <p style='font-size:1.1rem; color:#CCC;'>⏰ 報到: <span style='color:{WARM_PINK}; font-weight:800;'>{r.get('報到時間','--:--')}</span></p>
-                        <hr style='border-color:#444; margin:15px 0;'>
-                        <p style='margin:0; font-size:1.1rem; color:#AAA;'>🛫 {r['起飛時間']} | 🛬 {r['落地時間']}</p>
+                        <p style='font-size:1.1rem;'>⏰ 報到: <span style='color:{WARM_PINK}; font-weight:800;'>{r.get('報到時間','--:--')}</span></p>
+                        <hr style='border-color:#444;'>
+                        <p style='margin:0; font-size:1.1rem;'>🛫 {r['起飛時間']} | 🛬 {r['落地時間']}</p>
                     </div>
                 """, unsafe_allow_html=True)
     else:
