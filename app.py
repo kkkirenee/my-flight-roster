@@ -26,24 +26,53 @@ st.markdown(f"""
     .stApp {{ background-color: #0E0E0E; color: white; }}
     .block-container {{ padding-top: 0.5rem !important; padding-bottom: 0rem !important; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
-/* 🚀 強制讓按鈕在手機上橫向並排，且靠攏縮小間距 */
-    [data-testid="column"] {{
-        width: 24% !important; /* 稍微縮小一點寬度 */
-        flex: 1 1 24% !important;
-        min-width: 20% !important;
-        padding: 0 !important; /* 移除預設內距 */
-    }}
-    
+/* 🚀 1. 儀表板組合：讓四個按鈕完全緊貼 */
     div[data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 2px !important; /* 🚀 間距縮到最小 */
+        gap: 0px !important; /* 🚀 縫隙歸零，完全緊貼 */
         justify-content: center !important;
         align-items: center !important;
+        background: #1A1A1A; /* 底色統一 */
+        border-radius: 12px;
+        padding: 2px !important;
+        border: 1px solid #333;
     }}
 
+    [data-testid="column"] {{
+        flex: 1 1 25% !important;
+        min-width: 0 !important;
+        padding: 0 !important;
+    }}
+
+    /* 🚀 2. 炫炮霓虹按鈕設定 */
     .stButton > button {{
+        width: 100% !important; 
+        height: 42px !important;
+        font-size: 0.85rem !important;
+        font-weight: 900 !important;
+        color: #CCC !important;
+        background: #1A1A1A !important;
+        border: none !important;
+        border-radius: 0px !important; /* 先取消圓角才能緊貼 */
+        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1) !important;
+        position: relative;
+    }}
+
+    /* 🚀 3. 特別處理首尾圓角，讓整體像一塊板子 */
+    [data-testid="column"]:first-child button {{ border-top-left-radius: 10px !important; border-bottom-left-radius: 10px !important; }}
+    [data-testid="column"]:last-child button {{ border-top-right-radius: 10px !important; border-bottom-right-radius: 10px !important; }}
+
+    /* 🚀 4. 選中狀態：發光效果 (Neon Glow) */
+    .stButton > button:focus, .stButton > button:active, .stButton > button:hover {{
+        background: {user_color} !important;
+        color: white !important;
+        box-shadow: 0 0 20px {user_color}88 !important; /* 霓虹發光 */
+        z-index: 2;
+        border-radius: 8px !important; /* 選中時稍微縮一點圓角，做出層次感 */
+        transform: scale(1.05); /* 微放大 */
+    }}
         width: 100% !important; 
         height: 40px !important; /* 高度稍微降一點點更精緻 */
         font-size: 0.8rem !important; /* 字體再縮小一點點點，確保不換行 */
