@@ -11,7 +11,7 @@ st.set_page_config(page_title="CAL SCHEDULE", layout="wide")
 CREW_CONFIG = {
     "Irene": {"color": "#F07699", "sheet": "Irene"},
     "Isabelle": {"color": "#A28CF0", "sheet": "Isabelle"},
-    "Elaine": {"color": "#76C9F0", "sheet": "Elaine"}, # 🚀 亮天藍鎖死
+    "Elaine": {"color": "#76C9F0", "sheet": "Elaine"},
     "Bigpiao": {"color": "#F0B476", "sheet": "Bigpiao"}
 }
 
@@ -20,40 +20,43 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (🚀 純色按鈕 + 精緻字體) ---
+# --- 1. 視覺風格 (🚀 左邊炫炮按鈕 + 右邊月曆純色回歸) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 姓名按鈕 - 正常的橫向長方形，純色邊框回歸 */
+    /* 🚀 側邊欄按鈕 - 妳最愛的炫炮樣式 */
     .stButton > button {{
         width: 100% !important;
-        height: 50px !important;      /* 橫向長方形高度 */
-        font-size: 1.2rem !important;  /* 精緻字體 */
+        height: 50px !important;
+        font-size: 1.2rem !important;
         font-weight: 800 !important;
         color: white !important;
         background-color: #1A1A1A !important;
         border-radius: 12px !important;
-        border: 2px solid {user_color} !important; /* 🚀 妳的專屬配色邊框 */
-        transition: all 0.3s ease !important;
+        border: 2px solid transparent !important; 
+        transition: all 0.3s ease-in-out !important;
+        background-clip: padding-box; 
         margin-bottom: 10px !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
+        background: linear-gradient(#1A1A1A, #1A1A1A) padding-box,
+                    linear-gradient(135deg, {user_color}88, #0E0E0E) border-box !important;
     }}
     
     .stButton > button:hover {{
-        background-color: {user_color} !important; /* 懸停時直接變專屬色 */
-        color: white !important;
+        background: linear-gradient(#262626, #262626) padding-box,
+                    linear-gradient(135deg, white, {user_color}) border-box !important;
+        transform: translateY(-2px) !important;
         box-shadow: 0 0 15px {user_color}88 !important;
-        transform: translateY(-2px);
     }}
 
-    /* 🚀 月曆字體 - 1.8em 精緻醒目 */
-    div.fc-event {{
+    /* 🚀 月曆顏色鎖死 - 修正預設藍色問題 */
+    div.fc-event, .fc-daygrid-event, .fc-event-main {{
         background-color: {user_color} !important;
-        border: none !important; border-radius: 0px !important; 
-        min-height: 4.2em !important; display: flex !important; align-items: center !important;
+        background: {user_color} !important;
+        border: none !important;
     }}
+    
     .fc-event-title {{
         font-size: 1.8em !important; 
         font-weight: 900 !important; 
@@ -62,7 +65,9 @@ st.markdown(f"""
         width: 100% !important;
     }}
 
-    /* 🚀 航班資訊卡片 - 精緻版（不再太太太太大） */
+    .fc-daygrid-day-frame {{ min-height: 120px !important; }}
+
+    /* 🚀 航班資訊卡片 - 精緻版 */
     .flight-card {{
         background: #1A1A1A; border-radius: 20px; padding: 20px !important;
         border: 3px solid {user_color} !important; margin-top: 15px;
@@ -70,9 +75,7 @@ st.markdown(f"""
     .card-title {{ color: {user_color}; font-size: 1.5rem !important; font-weight: 900; margin: 0; }}
     .card-dest {{ font-size: 2rem !important; font-weight: 950; margin: 10px 0; }}
     .time-val {{ font-size: 1.5rem !important; font-weight: 800; color: white; margin: 0; }}
-    
     .time-box {{ display: flex; justify-content: space-between; background: #262626; padding: 15px; border-radius: 12px; margin: 10px 0; border: 1px solid #333; }}
-    .time-label {{ font-size: 0.9rem; color: #888; margin: 0; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -86,7 +89,7 @@ with st.sidebar:
     st.divider()
     info_placeholder = st.container()
 
-# --- 3. 數據解析 (邏輯不變) ---
+# --- 3. 數據解析 ---
 calendar_events = []
 flight_db = pd.DataFrame()
 click_lookup = {} 
@@ -129,12 +132,17 @@ try:
 except Exception as e:
     st.sidebar.error(f"錯誤：{e}")
 
-# --- 4. 渲染月曆 ---
+# --- 4. 渲染月曆 (🚀 強制注入背景色) ---
 st.title(f"💖 {st.session_state.current_user}")
+# 這裡加強 custom_css 的注入，確保它蓋過預設藍
+cal_css = f"""
+    .fc-event, .fc-event-main {{ background-color: {user_color} !important; border: none !important; }}
+    .fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}
+"""
 state = calendar(
     events=calendar_events, 
     options={"initialDate": "2026-04-01", "displayEventTime": False}, 
-    custom_css=f".fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}",
+    custom_css=cal_css,
     key=f"cal_vfinal_stable_{st.session_state.current_user}"
 )
 
