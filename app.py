@@ -15,6 +15,7 @@ today_str = now_tw.strftime("%Y-%m-%d")
 if "current_user" not in st.session_state:
     st.session_state.current_user = "Irene"
 
+# 定義成員配色
 CREW_CONFIG = {
     "Irene": {"color": "#F07699", "icon": "🌸"},
     "Isabelle": {"color": "#A28CF0", "icon": "👤"},
@@ -23,40 +24,35 @@ CREW_CONFIG = {
 }
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (1.8em 大字鎖死) ---
+# --- 1. 視覺風格 (最強權限 CSS) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     [data-testid="stSidebar"] {{ background-color: #151515; border-right: 2px solid {user_color}; }}
     
-    .fc-event {{
+    /* 🚀 去藍變粉/紫：強制覆蓋月曆所有 Event 標籤 */
+    div.fc-event, div.fc-event-main, div.fc-daygrid-event {{
         background-color: {user_color} !important;
         border-color: {user_color} !important;
-        color: white !important;
         background: {user_color} !important;
     }}
     
     .report-card {{
         background: #1A1A1A; border-radius: 20px; padding: 25px;
-        border: 2px solid {user_color}; box-shadow: 0 0 20px rgba(240,118,153,0.3);
+        border: 2px solid {user_color}; box-shadow: 0 0 20px rgba(0,0,0,0.5);
         margin-bottom: 15px;
     }}
-    .tag {{
-        background: {user_color}; color: white; padding: 4px 12px;
-        border-radius: 6px; font-size: 0.9rem; font-weight: 900;
-    }}
-
+    
     div.stButton > button {{
         background-color: #262626; color: white; border: 1px solid #444;
         font-weight: 900; width: 100%; border-radius: 12px; height: 3.5em;
-        font-size: 1.1rem; transition: 0.3s; margin-bottom: 10px;
     }}
     div.stButton > button:hover {{ border-color: {user_color}; color: {user_color} !important; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 側邊導覽列 ---
+# --- 2. 側邊導覽 ---
 with st.sidebar:
     st.markdown(f"<h1 style='text-align:center; color:{user_color}; font-weight:900;'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
     st.divider()
@@ -67,7 +63,7 @@ with st.sidebar:
     st.divider()
     details_container = st.empty()
 
-# --- 3. 數據讀取 (讀取同層目錄的 CAL_Roster.xlsx) ---
+# --- 3. 數據讀取 ---
 calendar_events = []
 flight_db = pd.DataFrame()
 roster_lookup = {}
@@ -90,45 +86,64 @@ try:
             clean_date = raw_date.strftime('%Y-%m-%d') if isinstance(raw_date, datetime) else str(raw_date).split()[0]
             f_no = str(row['班號']).strip()
             memo = str(row.get('備註', '')).strip()
-            
-            # 🚀 存入備註供點擊查詢
             roster_lookup[clean_date] = {"fno": f_no, "memo": memo}
-            calendar_events.append({"title": f_no, "start": clean_date, "end": clean_date, "allDay": True})
-    else:
-        st.error(f"❌ 找不到檔案！請確認 GitHub 上是否有 '{roster_path}'")
+            
+            # 在 Event 資料裡也塞入顏色資訊，雙重保險
+            calendar_events.append({
+                "title": f_no, 
+                "start": clean_date, 
+                "end": clean_date, 
+                "allDay": True,
+                "backgroundColor": user_color,
+                "borderColor": user_color,
+                "textColor": "white"
+            })
 except Exception as e:
     st.sidebar.error(f"讀取出錯：{str(e)}")
 
-# --- 4. 主月曆 ---
+# --- 4. 主月曆 (鎖死大字與配色) ---
 st.title(f"💖 {st.session_state.current_user}'s Roster")
-custom_css = ".fc-event-title { font-size: 1.8em !important; font-weight: 900 !important; text-align: center !important; color: white !important; }"
-state = calendar(events=calendar_events, options={"contentHeight": "auto", "displayEventTime": False, "dayMaxEvents": False}, custom_css=custom_css, key=f"cal_{st.session_state.current_user}")
 
-# --- 5. 詳情顯示邏輯 (🚀 完完全全只看備註) ---
+# 這裡的 custom_css 必須包含動態的 user_color
+calendar_custom_css = f"""
+    .fc-event-title {{ 
+        font-size: 1.8em !important; 
+        font-weight: 900 !important; 
+        text-align: center !important; 
+        color: white !important; 
+    }}
+    .fc-event {{ 
+        background-color: {user_color} !important; 
+        border: none !important; 
+    }}
+"""
+
+state = calendar(
+    events=calendar_events, 
+    options={"contentHeight": "auto", "displayEventTime": False, "dayMaxEvents": False}, 
+    custom_css=calendar_custom_css, 
+    key=f"cal_{st.session_state.current_user}"
+)
+
+# --- 5. 詳情顯示邏輯 (100% 聽備註的話) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = roster_lookup.get(clicked_date, {})
     main_f = info.get("fno", "")
     memo = str(info.get("memo", ""))
     
-    # 🚀 建立班號清單：先放主班號
-    search_list = [main_f]
-
-    # 🚀 從「備註」欄位裡把所有的數字抓出來
-    # 不管備註寫 "117"、"116/117"、"回程117"，只要有數字就加進去顯示
-    memo_nums = re.findall(r'\d+', memo)
-    for n in memo_nums:
-        if n not in search_list:
-            search_list.append(n)
+    display_list = [main_f]
+    memo_fnos = re.findall(r'\d+', memo)
+    for f in memo_fnos:
+        if f not in display_list: display_list.append(f)
 
     with details_container.container():
-        for t in search_list:
+        for t in display_list:
             match = flight_db[flight_db['班號'] == t]
             if not match.empty:
                 r = match.iloc[0]
-                # 判定 STAY / FLY 標籤 (備註有過夜/stay字眼才標 STAY)
-                is_stay = any(word in memo.lower() for word in ["過夜", "stay"])
-                tag = "STAY" if is_stay else ("GO" if (len(search_list) > 1 and t == search_list[0]) else ("RTN" if len(search_list) > 1 else "FLY"))
+                is_stay = any(x in memo for x in ["過夜", "Stay", "stay"])
+                tag = "STAY" if is_stay else ("GO" if (len(display_list) > 1 and t == display_list[0]) else ("RTN" if len(display_list) > 1 else "FLY"))
                 
                 st.markdown(f"""
                     <div class="report-card">
