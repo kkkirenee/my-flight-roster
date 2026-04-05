@@ -20,20 +20,20 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (強制加高格子 + 鎖死大字) ---
+# --- 1. 視覺風格 (最強暴力字體鎖定) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 暴力撐開格子高度 */
-    .fc .fc-daygrid-day-frame {{
-        min-height: 5.5em !important; /* 讓整個日期格子變高 */
-    }}
-
+    /* 🚀 讓色塊像油漆一樣完全填滿，不准有縫隙 */
     .fc-daygrid-event-harness {{ 
         margin: 0 !important; 
-        padding: 0 !important; 
+        padding: 0 !important;
+    }}
+    .fc-daygrid-day-events {{
+        margin: 0 !important;
+        padding: 0 !important;
     }}
     
     div.fc-event {{
@@ -41,25 +41,26 @@ st.markdown(f"""
         border: none !important;
         border-radius: 0px !important; 
         margin: 0 !important;
-        min-height: 4.2em !important; /* 🚀 色塊高度加強，確保能塞下 1.8em 大字 */
+        min-height: 4.5em !important; /* 加高格子 */
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
     }}
     
-    /* 🚀 超大字鎖定 */
+    /* 🚀 字體絕對加粗 + 放大 (1.8em + Scale 強化) */
     .fc-event-title {{
-        font-size: 1.8em !important; 
+        font-size: 2em !important; /* 👈 稍微加到 2em */
         font-weight: 900 !important; 
         color: white !important;
         text-align: center !important;
         width: 100% !important;
-        line-height: 1 !important;
+        display: block !important;
+        transform: scale(1.1); /* 👈 強行縮放放大 */
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
     }}
-    
-    [data-testid="stSidebar"] {{
-        background-color: #151515;
-        border-right: 2px solid {user_color};
+
+    .fc-daygrid-day-frame {{
+        min-height: 120px !important;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -72,7 +73,7 @@ with st.sidebar:
             st.session_state.current_user = name
             st.rerun()
 
-# --- 3. 數據解析 (長班拆解：頭/中/尾) ---
+# --- 3. 數據解析 (長班拆解) ---
 calendar_events = []
 try:
     xl = pd.ExcelFile("CAL_Roster.xlsx")
@@ -85,7 +86,6 @@ try:
         f_no = str(row['班號']).strip()
         memo = str(row.get('備註', '')).strip()
 
-        # 解析長班日期 (支援妳 Excel 的 2026-04-11 格式)
         end_dt = start_dt
         rtn_fno = ""
         date_pattern = re.search(r'(\d{{4}}[-/]\d{{1,2}}[-/]\d{{1,2}})', memo)
@@ -98,55 +98,53 @@ try:
             except: pass
 
         if end_dt > start_dt:
-            # 🚀 (1) 去程：顯示大班號
+            # 去程
             calendar_events.append({
                 "title": f_no,
                 "start": start_dt.strftime('%Y-%m-%d'),
                 "end": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
-                "allDay": True, "backgroundColor": user_color
+                "allDay": True
             })
-            # 🚀 (2) 中間：純色塊填滿 (不顯示字)
+            # 中間純色塊
             if (end_dt - start_dt).days > 1:
                 calendar_events.append({
                     "title": " ", 
                     "start": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
                     "end": end_dt.strftime('%Y-%m-%d'),
-                    "allDay": True, "backgroundColor": user_color
+                    "allDay": True
                 })
-            # 🚀 (3) 回程：顯示回程大班號
+            # 回程
             if rtn_fno:
                 calendar_events.append({
                     "title": rtn_fno,
                     "start": end_dt.strftime('%Y-%m-%d'),
                     "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
-                    "allDay": True, "backgroundColor": user_color
+                    "allDay": True
                 })
         else:
-            # 一般單日班
             calendar_events.append({
                 "title": f_no,
                 "start": start_dt.strftime('%Y-%m-%d'),
                 "end": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
-                "allDay": True, "backgroundColor": user_color
+                "allDay": True
             })
-
 except Exception as e:
     st.sidebar.error(f"讀取錯誤：{e}")
 
-# --- 4. 渲染月曆 (內部自定義 CSS) ---
+# --- 4. 渲染月曆 (內部注入 CSS) ---
 st.title(f"💖 {st.session_state.current_user}")
 
-cal_custom_css = """
-    .fc-event-title { 
-        font-size: 1.8em !important; 
+cal_custom_css = f"""
+    .fc-event {{ 
+        background-color: {user_color} !important; 
+        border: none !important;
+        margin: 0 !important;
+    }}
+    .fc-event-title {{ 
+        font-size: 2em !important; 
         font-weight: 900 !important; 
-    }
-    .fc-daygrid-day-frame {
-        min-height: 100px !important;
-    }
-    .fc-event { 
-        border-radius: 0px !important; 
-    }
+        transform: scale(1.1);
+    }}
 """
 
 calendar(
@@ -155,8 +153,8 @@ calendar(
         "initialDate": "2026-04-01", 
         "contentHeight": "auto", 
         "displayEventTime": False,
-        "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
+        "headerToolbar": {{"left": "prev,next today", "center": "title", "right": ""}},
     }, 
     custom_css=cal_custom_css,
-    key=st.session_state.current_user + "_final_boss"
+    key=st.session_state.current_user + "_v_unbeatable"
 )
