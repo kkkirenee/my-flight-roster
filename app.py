@@ -28,7 +28,7 @@ st.markdown(f"""
     .block-container {{ padding-top: 0.5rem !important; padding-bottom: 0rem !important; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 姓名按鈕 - 炫炮漸層 */
+/* 🚀 姓名按鈕 - 炫炮漸層 */
     .stButton > button {{
         width: 100% !important; height: 50px !important;
         font-size: 1.2rem !important; font-weight: 800 !important;
@@ -38,11 +38,15 @@ st.markdown(f"""
                     linear-gradient(135deg, {user_color}88, #0E0E0E) border-box !important;
         margin-bottom: 10px !important;
     }}
-/* 🚀 請在這裡插入下方這段 */
-    .fc-daygrid-day-frame { min-height: 85px !important
-    /* 🚀 月曆自定義：隱記非本月的格子 */
+
+    /* 🚀 1. 新增：月曆格子縮小 (注意這裡也是雙大括號) */
+    .fc-daygrid-day-frame {{ 
+        min-height: 85px !important; 
+    }}
+
+    /* 🚀 2. 月曆自定義：隱記非本月的格子 */
     .fc-day-other {{
-        visibility: hidden !important; /* 隱藏非四月的格子內容 */
+        visibility: hidden !important; 
     }}
     
     .fc .fc-toolbar-title {{ font-size: 1.5rem !important; font-weight: 800; }}
