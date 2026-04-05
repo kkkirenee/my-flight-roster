@@ -54,6 +54,7 @@ st.markdown(f"""
     .fc-event-title {{ font-size: 1.6em !important; font-weight: 900 !important; text-align: center !important; }}
     .fc-daygrid-day-frame {{ min-height: 80px !important; }}
     .fc-day-other {{ visibility: hidden !important; }}
+    
     @media (max-width: 768px) {{
         .fc-event-title {{ font-size: 1.1em !important; }}
         .fc-daygrid-day-frame {{ min-height: 60px !important; }}
@@ -74,7 +75,7 @@ for i, name in enumerate(CREW_CONFIG.keys()):
 st.markdown(f"<h2 style='margin: 5px 0; text-align:center; font-size:1.2rem; color:{user_color};'>💖 {st.session_state.current_user}</h2>", unsafe_allow_html=True)
 info_box = st.container()
 
-# --- 3. 數據解析 (🚀 長班填色強效版) ---
+# --- 3. 數據解析 (🚀 一條龍填色邏輯) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 click_lookup = {}
@@ -103,35 +104,37 @@ try:
             click_lookup[d_str]["flights"].append(f_no)
             calendar_events.append({"title": f_no, "start": d_str, "allDay": True})
         
-        # 2. 回程與填色
+        # 2. 回程與橫槓填色
         rtn_match = re.search(r'回程\s*(\d+)', memo)
         date_match = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', memo)
         
         if rtn_match:
             r_fno = rtn_match.group(1)
-            r_date_str = d_str
+            r_dt = d_dt
             if date_match:
                 r_dt = pd.to_datetime(date_match.group(1))
                 r_date_str = r_dt.strftime('%Y-%m-%d')
                 
-                # 🚀 填補中間日期顏色 (Stay Events)
+                # 🚀 關鍵：用「橫槓」填滿中間的日子
                 if (r_dt - d_dt).days > 1:
+                    # 從去程隔天開始，到回程前一天
                     stay_start = (d_dt + timedelta(days=1)).strftime('%Y-%m-%d')
                     calendar_events.append({
-                        "title": " ", 
+                        "title": " ", # 空白標題，只顯示顏色槓槓
                         "start": stay_start, 
-                        "end": r_date_str, 
-                        "allDay": True,
-                        "display": "background" # 這是 FullCalendar 的背景填色模式
+                        "end": r_date_str, # end 不包含在內，所以會畫到回程前一天
+                        "allDay": True
                     })
                 
-                # 回程不同天，加到月曆
+                # 回程當天顯示班號 (如果不同天)
                 if r_date_str != d_str:
                     calendar_events.append({"title": r_fno, "start": r_date_str, "allDay": True})
             
-            if r_date_str not in click_lookup: click_lookup[r_date_str] = {"flights": [], "memo": "回程航班"}
-            if r_fno not in click_lookup[r_date_str]["flights"]:
-                click_lookup[r_date_str]["flights"].append(r_fno)
+            # 不論是否同天，點擊資訊都要有
+            final_r_str = r_dt.strftime('%Y-%m-%d')
+            if final_r_str not in click_lookup: click_lookup[final_r_str] = {"flights": [], "memo": "回程航班"}
+            if r_fno not in click_lookup[final_r_str]["flights"]:
+                click_lookup[final_r_str]["flights"].append(r_fno)
 
 except Exception as e:
     st.error(f"解析失敗: {e}")
@@ -151,7 +154,7 @@ cal_state = calendar(
 if cal_state.get("eventClick"):
     st.session_state.clicked_date = cal_state["eventClick"]["event"]["start"].split('T')[0]
 
-# --- 5. 顯示卡片 (🚀 報到時間大字版) ---
+# --- 5. 顯示卡片 (報到時間維持大字) ---
 if st.session_state.clicked_date:
     day_data = click_lookup.get(st.session_state.clicked_date)
     if day_data and day_data["flights"]:
@@ -172,7 +175,7 @@ if st.session_state.clicked_date:
                     <div style="background:#1A1A1A; border-radius:15px; padding:15px; border:3px solid {user_color}; margin-top:10px;">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
                             <span style="color:{user_color}; font-size:1.1rem; font-weight:900;">CI {target}</span>
-                            <span style="font-size:1.1rem; font-weight:900; color:#FFFFFF; background:{user_color}44; padding:2px 8px; border-radius:5px;">⏰ 報到: {report}</span>
+                            <span style="font-size:1.1rem; font-weight:900; color:#FFFFFF; background:{user_color}66; padding:3px 10px; border-radius:8px;">⏰ 報到: {report}</span>
                         </div>
                         <p style="font-size:1.6rem; font-weight:950; margin:10px 0;">📍 {dest}</p>
                         <div style="display:flex; justify-content:space-between; background:#262626; padding:12px; border-radius:10px;">
