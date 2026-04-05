@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from streamlit_calendar import calendar
 from datetime import datetime
 import pytz
 import re
@@ -9,11 +8,11 @@ import re
 st.set_page_config(page_title="CAL SCHEDULE", page_icon="✈️", layout="wide")
 tw_tz = pytz.timezone('Asia/Taipei')
 now_tw = datetime.now(tw_tz)
-today_str = now_tw.strftime("%Y-%m-%d")
 
 if "current_user" not in st.session_state:
     st.session_state.current_user = "Irene"
 
+# 成員配色
 CREW_CONFIG = {
     "Irene": {"color": "#F07699", "icon": "🌸"},
     "Isabelle": {"color": "#A28CF0", "icon": "👤"},
@@ -22,127 +21,114 @@ CREW_CONFIG = {
 }
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格鎖定 (最強權限 CSS) ---
+# --- 1. 極簡風格鎖定 ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
-    #MainMenu, footer, header {{ visibility: hidden; }}
     [data-testid="stSidebar"] {{ background-color: #151515; border-right: 2px solid {user_color}; }}
-    
-    /* 🚀 鎖定底色：去藍變粉 */
-    .fc-event, .fc-event-main, .fc-daygrid-event, .fc-event-title-container {{
-        background-color: {user_color} !important;
-        border: none !important;
-        background: {user_color} !important;
+    .flight-box {{
+        background-color: {user_color};
+        color: white;
+        padding: 10px;
+        border-radius: 10px;
+        text-align: center;
+        margin-bottom: 10px;
+        cursor: pointer;
     }}
-    
-    /* 🚀 鎖定字體：35px 白色大粗體，絕對置中 */
-    .fc-event-title {{
-        font-size: 35px !important;
-        font-weight: 900 !important;
-        color: white !important;
-        text-align: center !important;
-        display: block !important;
-        padding: 8px 0 !important;
+    .flight-num {{ font-size: 2.5rem !important; font-weight: 900; line-height: 1; }}
+    .detail-card {{
+        background: #1A1A1A; border: 2px solid {user_color};
+        padding: 15px; border-radius: 15px; margin-bottom: 10px;
     }}
-
-    /* 🚀 鎖定格子：撐開高度防止字被切掉 */
-    .fc-daygrid-event-harness {{ 
-        min-height: 65px !important; 
-        margin-bottom: 5px !important;
-    }}
-    .fc-daygrid-day-frame {{ min-height: 110px !important; }}
-
-    .report-card {{
-        background: #1A1A1A; border-radius: 15px; padding: 20px;
-        border: 2px solid {user_color}; margin-top: 10px;
-    }}
-    
-    div.stButton > button {{
-        background-color: #262626; color: white; border: 1px solid #444;
-        font-weight: 900; width: 100%; border-radius: 10px; height: 3em;
-    }}
-    div.stButton > button:hover {{ border-color: {user_color}; color: {user_color} !important; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 側邊導覽 (SCHEDULE) ---
+# --- 2. 側邊欄 (SCHEDULE) ---
 with st.sidebar:
-    st.markdown(f"<h1 style='text-align:center; color:{user_color}; font-weight:900;'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='text-align:center; color:{user_color};'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
     st.divider()
     for name in CREW_CONFIG.keys():
         if st.button(f"{CREW_CONFIG[name]['icon']} {name}", key=f"btn_{name}"):
             st.session_state.current_user = name
             st.rerun()
     st.divider()
-    details_container = st.empty()
+    st.subheader("📋 Flight Details")
+    info_placeholder = st.empty()
 
 # --- 3. 數據讀取 ---
-calendar_events = []
-flight_db = pd.DataFrame()
 try:
-    flight_db = pd.read_csv('my_flights.csv', encoding='utf-8-sig')
-    flight_db.columns = flight_db.columns.str.strip()
-    flight_db['班號'] = flight_db['班號'].astype(str).str.replace('CI', '').str.strip()
+    # 航班字典
+    df_flight = pd.read_csv('my_flights.csv', encoding='utf-8-sig')
+    df_flight.columns = df_flight.columns.str.strip()
+    df_flight['班號'] = df_flight['班號'].astype(str).str.replace('CI', '').str.strip()
     
-    user_df = pd.read_excel('CAL_Roster.xlsx', sheet_name=st.session_state.current_user)
-    user_df.columns = user_df.columns.str.strip()
-    
-    for _, row in user_df.iterrows():
-        raw_date = row['日期']
-        clean_date = raw_date.strftime('%Y-%m-%d') if isinstance(raw_date, datetime) else str(raw_date).split()[0]
-        calendar_events.append({
-            "title": str(row['班號']), 
-            "start": clean_date, 
-            "end": clean_date, 
-            "allDay": True,
-            "backgroundColor": user_color,
-            "borderColor": user_color
-        })
+    # 個人班表
+    df_roster = pd.read_excel('CAL_Roster.xlsx', sheet_name=st.session_state.current_user)
+    df_roster.columns = df_roster.columns.str.strip()
+    # 建立日期索引字典
+    roster_dict = {}
+    for _, row in df_roster.iterrows():
+        d = row['日期'].strftime('%Y-%m-%d') if isinstance(row['日期'], datetime) else str(row['日期']).split()[0]
+        roster_dict[d] = str(row['班號'])
 except:
-    st.sidebar.error(f"讀取 {st.session_state.current_user} 失敗")
+    st.sidebar.error("資料讀取失敗，請檢查檔案與分頁名稱")
 
-# --- 4. 主月曆 ---
+# --- 4. 主畫面：改用原生 Columns 製作「真‧大字月曆」 ---
 st.title(f"💖 {st.session_state.current_user}'s Roster")
 
-state = calendar(
-    events=calendar_events, 
-    options={
-        "initialDate": today_str,
-        "contentHeight": 750,
-        "displayEventTime": False,
-        "dayMaxEvents": False, # 強制顯示完整 Event，不縮成點點
-    }, 
-    key=f"cal_{st.session_state.current_user}"
-)
+# 這裡我們用 Python 的方式來畫月曆，保證字體大小受控
+import calendar
+curr_month = now_tw.month
+curr_year = now_tw.year
+month_name = calendar.month_name[curr_month]
+st.subheader(f"📅 {month_name} {curr_year}")
 
-# --- 5. 詳情顯示 (所有人邏輯同步) ---
-if state.get("eventClick"):
-    full_title = state["eventClick"]["event"]["title"].strip()
-    
-    # 判斷過夜班清單
-    stay_list = ["150", "771", "721", "761"] if st.session_state.current_user == "Isabelle" else ["150", "130", "731", "721"]
+cols = st.columns(7)
+weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+for i, day in enumerate(weekdays):
+    cols[i].markdown(f"<p style='text-align:center; color:#888;'>{day}</p>", unsafe_allow_html=True)
 
-    flight_numbers = re.findall(r'\d+', full_title)
-    
-    with details_container.container():
-        for fno in flight_numbers:
-            match = flight_db[flight_db['班號'] == fno]
-            if not match.empty:
-                r = match.iloc[0]
-                tag = "STAY" if fno in stay_list else ("GO" if (len(flight_numbers) > 1 and fno == flight_numbers[0]) else ("RTN" if len(flight_numbers) > 1 else "STAY"))
-                
-                st.markdown(f"""
-                    <div class="report-card">
-                        <div style='display:flex; justify-content:space-between; align-items:center;'>
-                            <h2 style='color:{user_color}; margin:0;'>CI {fno}</h2>
-                            <span style='background:{user_color}; color:white; padding:2px 8px; border-radius:5px; font-size:0.8rem;'>{tag}</span>
+cal = calendar.Calendar(firstweekday=0)
+month_days = cal.monthdayscalendar(curr_year, curr_month)
+
+for week in month_days:
+    cols = st.columns(7)
+    for i, day in enumerate(week):
+        if day == 0:
+            cols[i].write("")
+        else:
+            date_str = f"{curr_year}-{curr_month:02d}-{day:02d}"
+            flight_val = roster_dict.get(date_str, "")
+            
+            # 格子容器
+            with cols[i].container():
+                st.markdown(f"<p style='margin:0; color:#555;'>{day}</p>", unsafe_allow_html=True)
+                if flight_val:
+                    # 🚀 這裡就是妳要的：超級大字、粉紅色背景
+                    if st.button(flight_val, key=f"date_{day}"):
+                        st.session_state.selected_flight = flight_val
+                    st.markdown(f"""
+                        <div style='background:{user_color}; border-radius:8px; padding:5px; text-align:center; margin-top:-35px; pointer-events:none;'>
+                            <span style='font-size:1.8rem; font-weight:900; color:white;'>{flight_val}</span>
                         </div>
-                        <p style='margin:10px 0; font-size:1.3rem; font-weight:800;'>📍 {r['目的地']}</p>
-                        <p style='font-size:1.1rem; margin:2px 0;'>⏰ 報到: {r.get('報到時間','--:--')}</p>
-                        <hr style='border-color:#444; margin:10px 0;'>
-                        <p style='font-size:0.9rem; color:#AAA; margin:0;'>🛫 {r.get('起飛時間','--:--')} | 🛬 {r.get('落地時間','--:--')}</p>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.write("")
+
+# --- 5. 詳情顯示 ---
+selected = st.session_state.get("selected_flight")
+if selected:
+    fnos = re.findall(r'\d+', selected)
+    with info_placeholder.container():
+        for f in fnos:
+            m = df_flight[df_flight['班號'] == f]
+            if not m.empty:
+                r = m.iloc[0]
+                st.markdown(f"""
+                    <div class="detail-card">
+                        <h2 style='color:{user_color}; margin:0;'>CI {f}</h2>
+                        <p style='font-size:1.2rem; font-weight:700; margin:10px 0;'>📍 {r['目的地']}</p>
+                        <p>⏰ 報到: {r.get('報到時間','--:--')}</p>
+                        <p style='font-size:0.9rem; color:#888;'>🛫 {r.get('起飛時間','--:--')} | 🛬 {r.get('落地時間','--:--')}</p>
                     </div>
                 """, unsafe_allow_html=True)
-else:
-    details_container.write("✨ 點擊班號看詳情")
