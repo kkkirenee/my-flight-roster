@@ -75,8 +75,8 @@ roster_lookup = {}
 
 # 檔案路徑設定
 BASE_DIR = "FlightCalender"
-ROSTER_PATH = os.path.join(BASE_DIR, "CAL_Roster.xls")
-FLIGHT_DB_PATH = "my_flights.csv" # 假設這個在根目錄，若也在資料夾請改路徑
+ROSTER_PATH = os.path.join(BASE_DIR, "CAL_Roster.xlsx")
+FLIGHT_DB_PATH = "my_flights.csv" 
 
 try:
     # 讀取航班字典
@@ -84,16 +84,18 @@ try:
     flight_db.columns = flight_db.columns.str.strip()
     flight_db['班號'] = flight_db['班號'].astype(str).str.replace('CI', '').str.strip()
     
-    # 讀取 Excel (使用 xlrd 引擎處理 .xls)
-    user_df = pd.read_excel(ROSTER_PATH, sheet_name=st.session_state.current_user, engine='xlrd')
+    # 讀取 Excel (.xlsx 格式)
+    user_df = pd.read_excel(ROSTER_PATH, sheet_name=st.session_state.current_user)
     user_df.columns = user_df.columns.str.strip()
     
     for _, row in user_df.iterrows():
         raw_date = row['日期']
+        # 轉換日期格式
         clean_date = raw_date.strftime('%Y-%m-%d') if isinstance(raw_date, datetime) else str(raw_date).split()[0]
         f_no = str(row['班號']).strip()
         memo = str(row.get('備註', '')).strip()
         
+        # 存起來供點擊後顯示詳情
         roster_lookup[clean_date] = {"fno": f_no, "memo": memo}
         
         calendar_events.append({
@@ -101,7 +103,7 @@ try:
             "backgroundColor": user_color, "borderColor": user_color
         })
 except Exception as e:
-    st.sidebar.error(f"讀取失敗！請確認 {ROSTER_PATH} 是否存在，且包含【日期、班號、備註】欄位。")
+    st.sidebar.error(f"讀取失敗！請確認檔案位於 {ROSTER_PATH}")
 
 # --- 4. 主月曆 ---
 st.title(f"💖 {st.session_state.current_user}'s Roster")
@@ -119,14 +121,14 @@ custom_css = ".fc-event-title { font-size: 1.8em !important; font-weight: 900 !i
 
 state = calendar(events=calendar_events, options=calendar_options, custom_css=custom_css, key=f"cal_{st.session_state.current_user}")
 
-# --- 5. 詳情顯示邏輯 (根據備註拆解回程) ---
+# --- 5. 詳情顯示邏輯 (根據備註拆解) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = roster_lookup.get(clicked_date, {})
     main_f = info.get("fno", "")
     memo = info.get("memo", "")
     
-    # 🚀 根據備註抓取所有班號
+    # 🚀 根據備註抓取所有班號 (例如 116 備註寫 117，會顯示兩張卡片)
     flight_list = [main_f]
     memo_numbers = re.findall(r'\d+', memo)
     for num in memo_numbers:
