@@ -26,26 +26,33 @@ st.markdown(f"""
     .stApp {{ background-color: #0E0E0E; color: white; }}
     .block-container {{ padding-top: 0.5rem !important; padding-bottom: 0rem !important; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
-    
-    /* 🚀 強制讓按鈕在手機上橫向並排 */
+/* 🚀 強制讓按鈕在手機上橫向並排，且靠攏縮小間距 */
     [data-testid="column"] {{
-        width: calc(25% - 5px) !important;
-        flex: 1 1 calc(25% - 5px) !important;
-        min-width: calc(25% - 5px) !important;
+        width: 24% !important; /* 稍微縮小一點寬度 */
+        flex: 1 1 24% !important;
+        min-width: 20% !important;
+        padding: 0 !important; /* 移除預設內距 */
     }}
+    
     div[data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 5px !important;
+        gap: 2px !important; /* 🚀 間距縮到最小 */
+        justify-content: center !important;
+        align-items: center !important;
     }}
 
     .stButton > button {{
-        width: 100% !important; height: 42px !important;
-        font-size: 0.85rem !important;
+        width: 100% !important; 
+        height: 40px !important; /* 高度稍微降一點點更精緻 */
+        font-size: 0.8rem !important; /* 字體再縮小一點點點，確保不換行 */
         font-weight: 800 !important;
-        color: white !important; background-color: #1A1A1A !important;
-        border-radius: 10px !important; border: 2px solid transparent !important; 
+        padding: 0 !important;
+        color: white !important; 
+        background-color: #1A1A1A !important;
+        border-radius: 8px !important; 
+        border: 2px solid transparent !important; 
         background: linear-gradient(#1A1A1A, #1A1A1A) padding-box,
                     linear-gradient(135deg, {user_color}88, #0E0E0E) border-box !important;
     }}
