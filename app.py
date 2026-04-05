@@ -20,13 +20,13 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (🚀 左邊炫炮按鈕 + 右邊月曆純色回歸) ---
+# --- 1. 視覺風格 (🚀 恢復 Today 按鈕點擊功能) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 側邊欄按鈕 - 妳最愛的炫炮樣式 */
+    /* 🚀 姓名按鈕 - 橫向炫炮 */
     .stButton > button {{
         width: 100% !important;
         height: 50px !important;
@@ -42,7 +42,6 @@ st.markdown(f"""
         background: linear-gradient(#1A1A1A, #1A1A1A) padding-box,
                     linear-gradient(135deg, {user_color}88, #0E0E0E) border-box !important;
     }}
-    
     .stButton > button:hover {{
         background: linear-gradient(#262626, #262626) padding-box,
                     linear-gradient(135deg, white, {user_color}) border-box !important;
@@ -50,31 +49,39 @@ st.markdown(f"""
         box-shadow: 0 0 15px {user_color}88 !important;
     }}
 
-    /* 🚀 月曆顏色鎖死 - 修正預設藍色問題 */
+    /* 🚀 月曆事件純色 */
     div.fc-event, .fc-daygrid-event, .fc-event-main {{
         background-color: {user_color} !important;
-        background: {user_color} !important;
         border: none !important;
     }}
-    
-    .fc-event-title {{
-        font-size: 1.8em !important; 
-        font-weight: 900 !important; 
-        color: white !important; 
-        text-align: center !important; 
-        width: 100% !important;
+    .fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}
+
+    /* 🚀 Today 按鈕功能修復：確保可點擊 */
+    .fc .fc-button-primary {{
+        background-color: transparent !important;
+        border: 1px solid {user_color} !important;
+        color: {user_color} !important;
+        z-index: 10 !important; /* 確保在最上層 */
+        cursor: pointer !important;
+        text-transform: capitalize !important;
+    }}
+    .fc .fc-button-primary:hover {{
+        background-color: {user_color}11 !important;
+        color: white !important;
+    }}
+    .fc .fc-button-primary:disabled {{
+        opacity: 0.3 !important;
+        cursor: not-allowed !important;
     }}
 
-    .fc-daygrid-day-frame {{ min-height: 120px !important; }}
-
-    /* 🚀 航班資訊卡片 - 精緻版 */
+    /* 🚀 航班資訊卡片 */
     .flight-card {{
         background: #1A1A1A; border-radius: 20px; padding: 20px !important;
         border: 3px solid {user_color} !important; margin-top: 15px;
     }}
-    .card-title {{ color: {user_color}; font-size: 1.5rem !important; font-weight: 900; margin: 0; }}
+    .card-title {{ color: {user_color}; font-size: 1.5rem !important; font-weight: 900; }}
     .card-dest {{ font-size: 2rem !important; font-weight: 950; margin: 10px 0; }}
-    .time-val {{ font-size: 1.5rem !important; font-weight: 800; color: white; margin: 0; }}
+    .time-val {{ font-size: 1.5rem !important; font-weight: 800; color: white; }}
     .time-box {{ display: flex; justify-content: space-between; background: #262626; padding: 15px; border-radius: 12px; margin: 10px 0; border: 1px solid #333; }}
     </style>
     """, unsafe_allow_html=True)
@@ -89,21 +96,18 @@ with st.sidebar:
     st.divider()
     info_placeholder = st.container()
 
-# --- 3. 數據解析 ---
+# --- 3. 數據解析 (維持邏輯) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 click_lookup = {} 
-
 try:
     if os.path.exists("my_flights.csv"):
         flight_db = pd.read_csv("my_flights.csv", encoding='utf-8-sig').fillna("")
         flight_db.columns = flight_db.columns.str.strip()
         flight_db['f_clean'] = flight_db['班號'].astype(str).str.upper().str.replace('CI', '').str.strip()
-
     xl = pd.ExcelFile("CAL_Roster.xlsx")
     df = pd.read_excel(xl, sheet_name=CREW_CONFIG[st.session_state.current_user]["sheet"])
     df.columns = df.columns.str.strip()
-
     for _, row in df.iterrows():
         if pd.isna(row['日期']): continue
         start_dt = pd.to_datetime(row['日期'])
@@ -132,18 +136,18 @@ try:
 except Exception as e:
     st.sidebar.error(f"錯誤：{e}")
 
-# --- 4. 渲染月曆 (🚀 強制注入背景色) ---
+# --- 4. 渲染月曆 (🚀 加強 Today 點擊權限) ---
 st.title(f"💖 {st.session_state.current_user}")
-# 這裡加強 custom_css 的注入，確保它蓋過預設藍
 cal_css = f"""
     .fc-event, .fc-event-main {{ background-color: {user_color} !important; border: none !important; }}
     .fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}
+    .fc .fc-button-primary {{ border: 1px solid {user_color} !important; color: {user_color} !important; pointer-events: auto !important; }}
 """
 state = calendar(
     events=calendar_events, 
     options={"initialDate": "2026-04-01", "displayEventTime": False}, 
     custom_css=cal_css,
-    key=f"cal_vfinal_stable_{st.session_state.current_user}"
+    key=f"cal_vfinal_clickable_{st.session_state.current_user}"
 )
 
 # --- 5. 點擊顯示 ---
