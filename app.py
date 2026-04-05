@@ -1,133 +1,135 @@
 import streamlit as st
 import pandas as pd
 from streamlit_calendar import calendar
-from datetime import datetime, timedelta
+from datetime import datetime
 import pytz
 
-# --- 0. 時區校準 (台灣時區) ---
-# 強制抓取台北時間，避免伺服器時差導致 5 號變成 4 號
+# --- 0. 時區與初始化 ---
 tw_tz = pytz.timezone('Asia/Taipei')
 now_tw = datetime.now(tw_tz)
 today_str = now_tw.strftime("%Y-%m-%d")
 
-# --- 1. 頁面與風格設定 ---
-st.set_page_config(page_title="CAL Calendar", page_icon="📅", layout="wide")
+# 如果沒有選擇任何人，預設選妳自己
+if "current_user" not in st.session_state:
+    st.session_state.current_user = "Irene"
+
+# --- 1. 頁面設定 ---
+st.set_page_config(page_title="Team Calendar", page_icon="📅", layout="wide")
 
 HOT_PINK = "#F07699"
+SOFT_BLUE = "#7699F0" # 幫第二個人換個顏色做區隔
 BG_BLACK = "#0E0E0E"
+
+# --- 2. 班表資料庫 (多人模式) ---
+# 這裡可以無限擴充，以後有新同事就加進去
+USERS_DATA = {
+    "Irene": {
+        "color": HOT_PINK,
+        "roster": {
+            "2026-04-03": "116", "2026-04-05": "517", "2026-04-08": "108",
+            "2026-04-10": "915", "2026-04-12": "150", "2026-04-13": "151"
+        }
+    },
+    "學姐": {
+        "color": SOFT_BLUE,
+        "roster": {
+            "2026-04-03": "108", "2026-04-04": "511", "2026-04-06": "156",
+            "2026-04-10": "731", "2026-04-12": "116", "2026-04-15": "915"
+        }
+    }
+}
+
+# --- 3. CSS 樣式鎖定 ---
+user_color = USERS_DATA[st.session_state.current_user]["color"]
 
 st.markdown(f"""
     <style>
     .stApp {{ background-color: {BG_BLACK}; color: white; }}
-    #MainMenu, footer, header {{ visibility: hidden; }}
+    [data-testid="stSidebar"] {{ background-color: #151515; border-right: 2px solid {user_color}; }}
+    
+    /* 強制月曆格子顏色隨人改變 */
+    .fc-event {{
+        background-color: {user_color} !important;
+        border-color: {user_color} !important;
+    }}
+    
     .report-card {{
-        background: #1A1A1A; border-radius: 20px; padding: 25px;
-        border: 2px solid {HOT_PINK}; box-shadow: 0 0 20px rgba(255,46,99,0.3);
-        margin-bottom: 15px;
+        background: #222222; border-radius: 15px; padding: 20px;
+        border: 1px solid {user_color}; margin-bottom: 12px;
     }}
-    .tag {{
-        background: {HOT_PINK}; color: white; padding: 4px 12px;
-        border-radius: 6px; font-size: 0.9rem; font-weight: 900;
-    }}
-    /* 自定義 Today 大按鈕樣式 */
+    .tag {{ background: {user_color}; color: white; padding: 3px 10px; border-radius: 5px; }}
+    
+    /* 側邊欄按鈕樣式 */
     div.stButton > button {{
-        background-color: {HOT_PINK}; color: white; border: none;
-        font-weight: 900; width: 100%; border-radius: 12px; height: 3.5em;
-        font-size: 1.1rem; transition: 0.3s;
+        background-color: #333; color: white; border: 1px solid #444;
+        font-weight: 800; width: 100%; margin-bottom: 10px;
     }}
-    div.stButton > button:hover {{
-        background-color: #ff4d7d; transform: scale(1.02);
+    /* 被選中的按鈕變亮色 */
+    div.stButton > button:focus {{
+        background-color: {user_color}; color: white; border: none;
     }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 班表資料 ---
-ROSTER = {
-    "2026-04-03": "116", "2026-04-05": "517", "2026-04-08": "108",
-    "2026-04-10": "915", "2026-04-12": "150", "2026-04-13": "151",
-    "2026-04-14": "130", "2026-04-15": "131", "2026-04-16": "527", 
-    "2026-04-18": "731", "2026-04-19": "732", "2026-04-21": "186", 
-    "2026-04-23": "783", "2026-04-25": "190", "2026-04-30": "156"
-}
+# --- 4. 側邊欄 (左側按鈕選單) ---
+with st.sidebar:
+    st.markdown(f"<h2 style='color:{user_color};'>👥 Team Roster</h2>", unsafe_allow_html=True)
+    st.write("選擇要查看的成員：")
+    
+    # 為每個人建立一個切換按鈕
+    for name in USERS_DATA.keys():
+        if st.button(f"👤 {name}", key=f"btn_{name}"):
+            st.session_state.current_user = name
+            st.rerun() # 點擊後重新整理頁面以切換資料
+            
+    st.divider()
+    st.subheader("📋 Flight Details")
+    details_placeholder = st.empty()
+
+# --- 5. 處理目前選中者的資料 ---
+current_user = st.session_state.current_user
+user_info = USERS_DATA[current_user]
+current_roster = user_info["roster"]
 
 calendar_events = []
-for date_key, flight in ROSTER.items():
-    calendar_events.append({
-        "title": flight, "start": date_key, "end": date_key,
-        "backgroundColor": HOT_PINK, "borderColor": HOT_PINK
-    })
+for d, f in current_roster.items():
+    calendar_events.append({"title": f, "start": d, "end": d, "allDay": True})
 
-# --- 3. 讀取 CSV ---
+# --- 6. 主頁面 (右側月曆) ---
+st.title(f"💖 {current_user}'s Calendar")
+
+calendar_options = {
+    "headerToolbar": {"left": "prev,next", "center": "title", "right": "dayGridMonth"},
+    "initialView": "dayGridMonth",
+    "initialDate": today_str,
+    "contentHeight": 700,
+}
+custom_css = ".fc-event-title { font-size: 1.6em !important; font-weight: 900 !important; text-align: center !important; }"
+state = calendar(events=calendar_events, options=calendar_options, custom_css=custom_css, key=f"cal_{current_user}")
+
+# --- 7. 顯示詳情 (CSV 讀取與匹配) ---
 try:
     df = pd.read_csv('my_flights.csv', encoding='utf-8-sig')
     df.columns = df.columns.str.strip()
     df['班號'] = df['班號'].astype(str).str.replace('CI', '').str.strip()
-except:
-    st.error("找不到 CSV 資料")
-    st.stop()
-
-# --- 4. 顯示介面 ---
-st.title("💖 FLIGHT CALENDAR")
-
-# 這裡點下去，我們直接強行把 target 設定為「今天的班號」
-if st.button(f"📍 SHOW TODAY'S FLIGHT ({today_str})"):
-    if today_str in ROSTER:
-        st.session_state.selected_f = ROSTER[today_str]
-    else:
-        st.session_state.selected_f = "None"
-
-col1, col2 = st.columns([2.5, 1])
-
-with col1:
-    calendar_options = {
-        "headerToolbar": {"left": "prev,next", "center": "title", "right": "dayGridMonth"},
-        "initialView": "dayGridMonth",
-        "initialDate": today_str,
-        "contentHeight": "auto",
-    }
-    # 字體維持最大最粗
-    custom_css = ".fc-event-title { font-size: 1.6em !important; font-weight: 900 !important; }"
-    state = calendar(events=calendar_events, options=calendar_options, custom_css=custom_css, key="roster_cal")
-
-with col2:
-    st.subheader("📋 Flight Details")
     
-    # 決定要抓哪一班的詳細資料
-    final_target = None
+    target = None
     if state.get("eventClick"):
-        final_target = state["eventClick"]["event"]["title"].strip()
-    elif "selected_f" in st.session_state:
-        final_target = st.session_state.selected_f
-
-    if final_target and final_target != "None":
-        stay_list = ["150", "151", "130", "131", "731", "732"]
-        search_list = [final_target]
-        # 如果不是過夜班，自動加一號
-        if final_target not in stay_list:
-            try: search_list.append(str(int(final_target) + 1))
-            except: pass
-            
-        found = False
-        for t in search_list:
-            match = df[df['班號'].str.contains(t)]
+        target = state["eventClick"]["event"]["title"].strip()
+        
+    with details_placeholder.container():
+        if target:
+            match = df[df['班號'] == target]
             if not match.empty:
                 r = match.iloc[0]
-                found = True
-                tag = "GO" if (len(search_list)>1 and t==final_target) else ("RTN" if len(search_list)>1 else "STAY")
                 st.markdown(f"""
                     <div class="report-card">
-                        <div style='display:flex; justify-content:space-between; align-items:center;'>
-                            <h2 style='color:{HOT_PINK}; margin:0;'>CI {t}</h2>
-                            <span class="tag">{tag}</span>
-                        </div>
-                        <p style='margin:15px 0 5px 0; font-size:1.3rem;'>📍 <b>{r['目的地']}</b></p>
-                        <p style='font-size:1.1rem;'>⏰ 報到: <span style='color:{HOT_PINK}'>{r.get('報到時間','--:--')}</span></p>
-                        <hr style='border-color:#444;'>
-                        <p style='margin:0; font-size:1.1rem;'>🛫 {r['起飛時間']} | 🛬 {r['落地時間']}</p>
+                        <h2 style='color:{user_color}; margin:0;'>CI {target}</h2>
+                        <p style='margin:10px 0;'>📍 <b>{r['目的地']}</b></p>
+                        <p style='font-size:0.9rem;'>⏰ 報到: {r.get('報到時間','--:--')}</p>
                     </div>
                 """, unsafe_allow_html=True)
-        if not found: st.warning(f"CSV 裡找不到 {final_target}")
-    elif final_target == "None":
-        st.info("今天沒有排班喔，好好休息！☕")
-    else:
-        st.write("點擊月曆班號，或按大按鈕看今天班表")
+        else:
+            st.write("點擊月曆查看航班詳情")
+except:
+    st.sidebar.error("CSV 讀取失敗")
