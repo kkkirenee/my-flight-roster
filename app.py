@@ -27,61 +27,54 @@ if st.session_state.current_user not in CREW_CONFIG:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# 🎨 視覺強化：超級粉紅大字 CSS
+# 🎨 視覺強化：強制去藍變粉＋班號放大 CSS
 st.markdown(f"""
     <style>
-    /* 背景與基礎文字 */
+    /* 基礎背景 */
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
-    [data-testid="stSidebar"] {{ background-color: #151515; border-right: 3px solid {user_color}; }}
+    [data-testid="stSidebar"] {{ background-color: #151515; border-right: 2px solid {user_color}; }}
     
-    /* 標題大字 */
-    h1 {{ 
-        font-size: 3.5rem !important; 
-        color: {user_color} !important; 
-        font-weight: 900 !important;
-        text-shadow: 2px 2px 10px {user_color}66;
-    }}
+    /* 大標題 */
+    h1 {{ color: {user_color} !important; font-weight: 800 !important; }}
     
-    /* 月曆內部的班號大字 */
+    /* 🚀 核心：強制覆蓋月曆藍色，換成粉紅大字 */
     .fc-event {{ 
-        background-color: {user_color} !important; 
+        background-color: {user_color} !important; /* 強制背景色 */
         border: none !important; 
-        border-radius: 8px !important;
-        padding: 5px !important;
+        border-radius: 6px !important;
+        cursor: pointer;
     }}
     .fc-event-title {{ 
-        font-size: 2.2rem !important; /* 班號變超級大 */
-        font-weight: 900 !important; 
+        font-size: 1.8rem !important; /* 🚀 班號字體放大 */
+        font-weight: 800 !important; 
         color: white !important; 
         text-align: center !important; 
+        padding: 2px 0;
     }}
     
-    /* 側邊欄按鈕大字 */
+    /* 🚀 縮小左邊按鈕 */
     div.stButton > button {{ 
         background-color: #262626; 
-        color: white !important; 
-        border: 2px solid #444; 
-        font-size: 1.5rem !important; /* 按鈕名字變大 */
-        font-weight: 800 !important; 
+        color: white; border: 1px solid #444; 
+        font-size: 1.1rem !important; /* 按鈕名字調小 */
+        font-weight: 700 !important; 
         width: 100%; 
-        height: 4em; 
-        border-radius: 15px;
-        margin-bottom: 10px;
-        transition: 0.3s;
+        height: 3em !important; /* 高度調低 */
+        border-radius: 10px;
+        margin-bottom: 8px;
     }}
     div.stButton > button:hover {{
         border-color: {user_color};
-        color: {user_color} !important;
-        box-shadow: 0 0 15px {user_color}66;
+        color: {user_color};
     }}
     
     /* 航班詳情卡片 */
     .report-card {{ 
-        background: #1F1F1F; border-radius: 20px; padding: 25px; 
-        border: 3px solid {user_color}; margin-bottom: 20px; 
+        background: #1F1F1F; border-radius: 15px; padding: 20px; 
+        border: 2px solid {user_color}; margin-bottom: 15px; 
     }}
-    .tag {{ background: {user_color}; color: white; padding: 5px 15px; border-radius: 8px; font-weight: 900; font-size: 1.1rem; }}
+    .tag {{ background: {user_color}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: 800; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -109,11 +102,11 @@ try:
             "allDay": True
         })
 except Exception as e:
-    st.sidebar.warning(f"✨ 尚未在 Excel 中找到 {st.session_state.current_user} 的分頁")
+    st.sidebar.warning(f"✨ 尚未找到 {st.session_state.current_user} 的分頁")
 
 # --- 3. 側邊欄導航 ---
 with st.sidebar:
-    st.markdown(f"<h1 style='font-size:2rem !important; text-align:center;'>✈️ MENU</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='text-align:center;'>✈️ Crew Hub</h3>", unsafe_allow_html=True)
     for name, config in CREW_CONFIG.items():
         if st.button(f"{config['icon']} {name}", key=f"btn_{name}"):
             st.session_state.current_user = name
@@ -124,6 +117,7 @@ with st.sidebar:
 
 # --- 4. 主頁面月曆 ---
 st.title(f"💖 {st.session_state.current_user}")
+# 🚀 這裡我們用了個小撇步，用事件標題大字取代原本預設小字
 state = calendar(events=calendar_events, options={"initialDate": today_str, "contentHeight": "auto"}, key=f"cal_{st.session_state.current_user}")
 
 # --- 5. 詳情顯示 ---
@@ -147,14 +141,14 @@ with details_placeholder.container():
                 st.markdown(f"""
                     <div class="report-card">
                         <div style='display:flex; justify-content:space-between; align-items:center;'>
-                            <h2 style='color:{user_color}; margin:0; font-size:2.5rem;'>CI {t}</h2>
+                            <h2 style='color:{user_color}; margin:0; font-size:2rem;'>CI {t}</h2>
                             <span class="tag">{tag}</span>
                         </div>
-                        <p style='margin:15px 0 5px 0; font-size:1.8rem; font-weight:800;'>📍 {r['目的地']}</p>
-                        <p style='font-size:1.3rem;'>⏰ 報到: <span style='color:{user_color}; font-weight:900;'>{r.get('報到時間','--:--')}</span></p>
-                        <hr style='border-color:#444; margin:20px 0;'>
-                        <p style='margin:0; font-size:1.1rem; color:#AAA;'>🛫 {r['起飛時間']} | 🛬 {r['落地時間']}</p>
+                        <p style='margin:12px 0 5px 0; font-size:1.5rem; font-weight:700;'>📍 {r['目的地']}</p>
+                        <p style='font-size:1.1rem;'>⏰ 報到: <span style='color:{user_color}; font-weight:800;'>{r.get('報到時間','--:--')}</span></p>
+                        <hr style='border-color:#444; margin:15px 0;'>
+                        <p style='margin:0; font-size:1rem; color:#AAA;'>🛫 {r['起飛時間']} | 🛬 {r['落地時間']}</p>
                     </div>
                 """, unsafe_allow_html=True)
     else:
-        st.write("✨ 點擊班號查看大圖詳情")
+        st.write("✨ 點擊班號查看詳情")
