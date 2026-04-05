@@ -4,7 +4,7 @@ from streamlit_calendar import calendar
 from datetime import datetime
 import pytz
 
-# --- 0. 時區與初始化 ---
+# --- 0. 初始化 ---
 tw_tz = pytz.timezone('Asia/Taipei')
 now_tw = datetime.now(tw_tz)
 today_str = now_tw.strftime("%Y-%m-%d")
@@ -29,13 +29,24 @@ st.markdown(f"""
     #MainMenu, footer, header {{ visibility: hidden; }}
     [data-testid="stSidebar"] {{ background-color: #151515; border-right: 2px solid {user_color}; }}
     
-    .fc-event {{
+    /* 🚀 暴力鎖死：去藍變粉，背景與邊框全部強制換色 */
+    .fc-event, .fc-event-main, .fc-daygrid-event, .fc-v-event {{
         background-color: {user_color} !important;
         border-color: {user_color} !important;
-        color: white !important;
         background: {user_color} !important;
     }}
     
+    /* 🚀 白色大粗體班號：2.0em */
+    .fc-event-title {{
+        font-size: 2.0em !important; 
+        font-weight: 900 !important; 
+        text-align: center !important; 
+        color: white !important;
+        display: block !important;
+    }}
+
+    .fc-daygrid-event-harness {{ min-height: 65px !important; }}
+
     .report-card {{
         background: #1A1A1A; border-radius: 15px; padding: 20px;
         border: 2px solid {user_color}; box-shadow: 0 0 15px rgba(240,118,153,0.2);
@@ -58,7 +69,7 @@ st.markdown(f"""
 # --- 2. 側邊導覽列 (SCHEDULE) ---
 with st.sidebar:
     st.markdown(f"<h1 style='text-align:center; color:{user_color};'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
-    st.divider()
+    st.write("---")
     for name, config in CREW_CONFIG.items():
         if st.button(f"{config['icon']} {name}", key=f"btn_{name}"):
             st.session_state.current_user = name
@@ -93,31 +104,25 @@ st.title(f"💖 {st.session_state.current_user}'s Roster")
 
 calendar_options = {
     "headerToolbar": {"left": "prev,next", "center": "title", "right": "dayGridMonth"},
-    "initialView": "dayGridMonth",
     "initialDate": today_str,
     "contentHeight": 700,
     "displayEventTime": False,
     "dayMaxEvents": False
 }
 
-# 🚀 維持妳要的大粗體字體
-custom_css = ".fc-event-title { font-size: 1.8em !important; font-weight: 900 !important; text-align: center !important; color: white !important; }"
+state = calendar(events=calendar_events, options=calendar_options, key=f"cal_{st.session_state.current_user}")
 
-state = calendar(events=calendar_events, options=calendar_options, custom_css=custom_css, key=f"cal_{st.session_state.current_user}")
-
-# --- 5. 詳情顯示邏輯 (包含過夜班/來回班判斷) ---
+# --- 5. 詳情顯示邏輯 (修復自動找回程功能) ---
 if state.get("eventClick"):
     fno = state["eventClick"]["event"]["title"].strip()
     
-    # ✈️ 定義不需要「+1」找回程的班號 (純過夜班)
-    # 如果妳的過夜班號是單數且沒有連號，請把號碼加進這裡
+    # ✈️ 過夜班名單 (手動加入不需要自動抓 +1 的班號)
     stay_only_flights = ["150", "130", "731", "721"] 
     
     search_list = [fno]
-    # 如果不是特定的過夜班，且是偶數去程，自動找奇數回程 (例如 116 找 117)
+    # 如果是偶數班號且非純過夜班，自動抓回程 (+1)
     if fno not in stay_only_flights:
         try:
-            # 簡單邏輯：如果是雙數去程，嘗試找 +1 的回程
             if int(fno) % 2 == 0:
                 search_list.append(str(int(fno) + 1))
         except: pass
@@ -127,20 +132,22 @@ if state.get("eventClick"):
             match = flight_db[flight_db['班號'] == t]
             if not match.empty:
                 r = match.iloc[0]
-                # 判定標籤：如果搜尋清單大於 1，第一個就是 GO，第二個就是 RTN
+                # 判定顯示標籤
                 tag = "GO" if (len(search_list) > 1 and t == fno) else ("RTN" if len(search_list) > 1 else "STAY")
                 
                 st.markdown(f"""
                     <div class="report-card">
-                        <div style='display:flex; justify-content:space-between;'>
+                        <div style='display:flex; justify-content:space-between; align-items:center;'>
                             <h2 style='color:{user_color}; margin:0;'>CI {t}</h2>
                             <span class="tag">{tag}</span>
                         </div>
-                        <p style='margin:10px 0; font-size:1.2rem; font-weight:800;'>📍 {r['目的地']}</p>
-                        <p style='font-size:1rem; margin:2px 0;'>⏰ 報到: <span style='color:{user_color}; font-weight:800;'>{r.get('報到時間','--:--')}</span></p>
+                        <p style='margin:10px 0; font-size:1.3rem; font-weight:800;'>📍 {r['目的地']}</p>
+                        <p style='font-size:1.1rem; margin:5px 0;'>⏰ 報到: <span style='color:{user_color}; font-weight:800;'>{r.get('報到時間','--:--')}</span></p>
                         <hr style='border-color:#444; margin:10px 0;'>
                         <p style='font-size:0.9rem; color:#AAA; margin:0;'>🛫 {r.get('起飛時間','--:--')} | 🛬 {r.get('落地時間','--:--')}</p>
                     </div>
                 """, unsafe_allow_html=True)
+            elif t == fno:
+                st.warning(f"找不到班號 {t} 的詳細資訊")
 else:
     info_area.write("✨ 點擊月曆班號看詳情")
