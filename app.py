@@ -15,22 +15,21 @@ CREW_CONFIG = {
     "Bigpiao": {"color": "#F0B476", "sheet": "Bigpiao"}
 }
 
-# 初始化狀態，防止跳掉
+# 🚀 狀態鎖定：防止切換或點擊時資訊消失
 if "current_user" not in st.session_state:
     st.session_state.current_user = "Elaine"
-if "clicked_info" not in st.session_state:
-    st.session_state.clicked_info = None
+if "clicked_date" not in st.session_state:
+    st.session_state.clicked_date = None
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (🚀 這次把 CSS 寫死，絕對不動到邏輯) ---
+# --- 1. 視覺風格 (🚀 橫向排排站 + 呼吸光) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     .block-container {{ padding-top: 0.5rem !important; padding-bottom: 0rem !important; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 橫向排排站 + 暴力靠左聚集 */
     div[data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -39,13 +38,8 @@ st.markdown(f"""
         justify-content: flex-start !important;
         margin-left: -15px !important;
     }}
-    [data-testid="column"] {{
-        width: auto !important;
-        flex: 0 0 auto !important;
-        padding: 0 !important;
-    }}
+    [data-testid="column"] {{ width: auto !important; flex: 0 0 auto !important; padding: 0 !important; }}
 
-    /* 🚀 姓名按鈕：圓角 + 呼吸光 */
     .stButton > button {{
         width: 78px !important; height: 38px !important;
         font-size: 0.85rem !important; font-weight: 800 !important;
@@ -60,9 +54,8 @@ st.markdown(f"""
         border: 2px solid white !important;
     }}
 
-    /* 月曆字體與顏色 */
     .fc-event {{ background-color: {user_color} !important; border: none !important; }}
-    .fc-event-title {{ font-size: 1.6em !important; font-weight: 900 !important; color: white !important; }}
+    .fc-event-title {{ font-size: 1.6em !important; font-weight: 900 !important; text-align: center !important; }}
     .fc-daygrid-day-frame {{ min-height: 80px !important; }}
     .fc-day-other {{ visibility: hidden !important; }}
     
@@ -73,7 +66,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 頂部導覽 (按鈕換人) ---
+# --- 2. 頂部導覽 ---
 st.markdown(f"<h1 style='color:{user_color}; font-weight:900; text-align:center; margin-bottom:5px; font-size:1.3rem;'>✈️ CAL SCHEDULE</h1>", unsafe_allow_html=True)
 
 c1, c2, c3, c4, c5 = st.columns([1,1,1,1,2])
@@ -81,13 +74,13 @@ for i, name in enumerate(CREW_CONFIG.keys()):
     with [c1, c2, c3, c4][i]:
         if st.button(name):
             st.session_state.current_user = name
-            st.session_state.clicked_info = None # 換人時清空點擊資訊
+            st.session_state.clicked_date = None # 換人時清空
             st.rerun()
 
 st.markdown(f"<h2 style='margin: 5px 0; text-align:center; font-size:1.2rem; color:{user_color};'>💖 {st.session_state.current_user}</h2>", unsafe_allow_html=True)
 info_box = st.container()
 
-# --- 3. 數據讀取 (🚀 保證所有欄位解析都在) ---
+# --- 3. 數據解析 (🚀 回程解析強效版) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 click_lookup = {}
@@ -104,22 +97,33 @@ try:
 
     for _, row in df.iterrows():
         if pd.isna(row['日期']): continue
-        d_str = pd.to_datetime(row['日期']).strftime('%Y-%m-%d')
+        start_date = pd.to_datetime(row['日期'])
+        d_str = start_date.strftime('%Y-%m-%d')
         f_no = str(row['班號']).strip()
         memo = str(row.get('備註', '')).strip()
         
-        click_lookup[d_str] = {"flights": [f_no], "memo": memo}
+        # 1. 加入去程
+        if d_str not in click_lookup: click_lookup[d_str] = {"flights": [], "memo": memo}
+        click_lookup[d_str]["flights"].append(f_no)
         calendar_events.append({"title": f_no, "start": d_str, "allDay": True})
         
-        # 解析回程
+        # 2. 暴力解析回程 (解決妳回程不見的問題)
         rtn_match = re.search(r'回程\s*(\d+)', memo)
-        date_match = re.search(r'(\d{{4}}[-/]\d{{1,2}}[-/]\d{{1,2}})', memo)
-        if rtn_match and date_match:
-            r_date = pd.to_datetime(date_match.group(1)).strftime('%Y-%m-%d')
-            click_lookup[r_date] = {"flights": [rtn_match.group(1)], "memo": "回程"}
-            calendar_events.append({"title": rtn_match.group(1), "start": r_date, "allDay": True})
+        date_match = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', memo)
+        
+        if rtn_match:
+            rtn_fno = rtn_match.group(1)
+            if date_match:
+                # 備註有日期：在該日期標註回程
+                r_date = pd.to_datetime(date_match.group(1)).strftime('%Y-%m-%d')
+                if r_date not in click_lookup: click_lookup[r_date] = {"flights": [], "memo": "回程航班"}
+                click_lookup[r_date]["flights"].append(rtn_fno)
+                calendar_events.append({"title": rtn_fno, "start": r_date, "allDay": True})
+            else:
+                # 備註沒日期：預設當天回 (或是純顯示)
+                click_lookup[d_str]["flights"].append(rtn_fno)
 except Exception as e:
-    st.error(f"讀取失敗: {e}")
+    st.error(f"數據解析出錯: {e}")
 
 # --- 4. 月曆渲染 ---
 cal_state = calendar(
@@ -130,23 +134,23 @@ cal_state = calendar(
         "fixedWeekCount": False, "showNonCurrentDates": False, "height": "auto"
     },
     custom_css=f".fc-event {{ background-color: {user_color} !important; }}",
-    key=f"cal_{st.session_state.current_user}"
+    key=f"cal_vfinal_{st.session_state.current_user}"
 )
 
-# 🚀 鎖定點擊資訊
+# 🚀 記憶點擊日期
 if cal_state.get("eventClick"):
-    st.session_state.clicked_info = cal_state["eventClick"]["event"]["start"].split('T')[0]
+    st.session_state.clicked_date = cal_state["eventClick"]["event"]["start"].split('T')[0]
 
-# --- 5. 顯示卡片 (🚀 從 Session State 抓，保證不跳掉) ---
-if st.session_state.clicked_info:
-    info = click_lookup.get(st.session_state.clicked_info)
-    if info:
+# --- 5. 顯示卡片 (🚀 確保點擊後穩如泰山) ---
+if st.session_state.clicked_date:
+    day_info = click_lookup.get(st.session_state.clicked_date)
+    if day_info:
         with info_box:
-            for fno in info["flights"]:
+            for fno in day_info["flights"]:
                 target = fno.upper().replace('CI', '').strip()
                 match = flight_db[flight_db['f_clean'] == target] if not flight_db.empty else pd.DataFrame()
                 
-                # 預設值
+                # 預設
                 dest, report, dep, arr = "??", "--:--", "--:--", "--:--"
                 if not match.empty:
                     r = match.iloc[0]
