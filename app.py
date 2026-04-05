@@ -20,7 +20,7 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (🚀 拔除 Today + 版面極致上移) ---
+# --- 1. 視覺風格 (🚀 格子變小 + 版面頂天) ---
 st.markdown(f"""
     <style>
     /* 🚀 極致縮減頂部空白 */
@@ -28,7 +28,7 @@ st.markdown(f"""
     .block-container {{ padding-top: 0.5rem !important; padding-bottom: 0rem !important; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 姓名按鈕 - 炫炮漸層 */
+    /* 🚀 姓名按鈕 - 維持精緻長方形 */
     .stButton > button {{
         width: 100% !important; height: 50px !important;
         font-size: 1.2rem !important; font-weight: 800 !important;
@@ -39,22 +39,22 @@ st.markdown(f"""
         margin-bottom: 10px !important;
     }}
 
-    /* 🚀 月曆自定義：隱記非本月的格子 */
-    .fc-day-other {{
-        visibility: hidden !important; /* 隱藏非四月的格子內容 */
+    /* 🚀 月曆格子縮小 */
+    .fc-daygrid-day-frame {{ 
+        min-height: 85px !important; /* 🚀 從 120px 縮小到 85px */
     }}
     
-    .fc .fc-toolbar-title {{ font-size: 1.5rem !important; font-weight: 800; }}
+    /* 隱藏非本月的格子 */
+    .fc-day-other {{ visibility: hidden !important; }}
     
-    /* 🚀 導覽按鈕配色 (僅保留 < >) */
+    /* 導覽按鈕配色 (< >) */
     .fc .fc-button-primary {{
         background-color: transparent !important;
         border: 2px solid {user_color} !important;
         color: {user_color} !important;
-        font-weight: 800 !important;
     }}
     
-    /* 事件樣式 */
+    /* 事件樣式 - 維持精緻大字 */
     div.fc-event {{ background-color: {user_color} !important; border: none !important; }}
     .fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}
 
@@ -76,7 +76,7 @@ with st.sidebar:
     st.divider()
     info_placeholder = st.container()
 
-# --- 3. 數據解析 (維持邏輯) ---
+# --- 3. 數據解析 ---
 calendar_events = []
 flight_db = pd.DataFrame()
 click_lookup = {} 
@@ -116,30 +116,23 @@ try:
 except Exception as e:
     st.sidebar.error(f"錯誤：{e}")
 
-# --- 4. 渲染月曆 (🚀 取消 Today + 隱藏非本月日期) ---
+# --- 4. 渲染月曆 (🚀 拔除 Today + 四月鎖定) ---
 st.markdown(f"<h2 style='margin-bottom:0px; margin-top:0px;'>💖 {st.session_state.current_user}</h2>", unsafe_allow_html=True)
-
-cal_options = {
-    "initialDate": "2026-04-01",
-    "displayEventTime": False,
-    "headerToolbar": {"left": "prev,next", "center": "title", "right": ""}, # 🚀 移除 today
-    "fixedWeekCount": False, # 🚀 自動調整週數，不顯示多餘的週
-    "showNonCurrentDates": False, # 🚀 不顯示非本月的日期數字
-}
-
-cal_css = f"""
-    .fc-event-main {{ background-color: {user_color} !important; }}
-    .fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}
-"""
 
 state = calendar(
     events=calendar_events, 
-    options=cal_options, 
-    custom_css=cal_css,
-    key=f"cal_vfinal_clean_{st.session_state.current_user}"
+    options={
+        "initialDate": "2026-04-01",
+        "displayEventTime": False,
+        "headerToolbar": {"left": "prev,next", "center": "title", "right": ""},
+        "fixedWeekCount": False,
+        "showNonCurrentDates": False,
+    }, 
+    custom_css=f".fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}",
+    key=f"cal_vfinal_compact_{st.session_state.current_user}"
 )
 
-# --- 5. 點擊顯示 (略，維持現有卡片邏輯) ---
+# --- 5. 點擊顯示 (卡片邏輯) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = click_lookup.get(clicked_date)
@@ -160,12 +153,12 @@ if state.get("eventClick"):
                     arr_t = get_v(['落地時間', '降落時間', '降落', 'ARR'])
                     st.markdown(f"""
                         <div class="flight-card">
-                            <p style="color:{user_color}; font-size:1.2rem; font-weight:900; margin:0;">CI {target_f}</p>
-                            <p style="font-size:1.6rem; font-weight:950; margin:5px 0;">📍 {dest}</p>
-                            <p style="font-size:0.9rem; color:#BBB; margin-bottom:5px;">⏰ 報到: {report}</p>
-                            <div style="display:flex; justify-content:space-between; background:#262626; padding:10px; border-radius:10px;">
-                                <div style="text-align:center;"><p style="font-size:0.7rem; color:#888; margin:0;">起飛</p><p style="font-size:1.2rem; font-weight:800; color:white; margin:0;">{dep_t}</p></div>
-                                <div style="text-align:center;"><p style="font-size:0.7rem; color:#888; margin:0;">落地</p><p style="font-size:1.2rem; font-weight:800; color:white; margin:0;">{arr_t}</p></div>
+                            <p style="color:{user_color}; font-size:1.1rem; font-weight:900; margin:0;">CI {target_f}</p>
+                            <p style="font-size:1.4rem; font-weight:950; margin:5px 0;">📍 {dest}</p>
+                            <p style="font-size:0.8rem; color:#BBB; margin-bottom:5px;">⏰ 報到: {report}</p>
+                            <div style="display:flex; justify-content:space-between; background:#262626; padding:8px; border-radius:10px;">
+                                <div style="text-align:center;"><p style="font-size:0.6rem; color:#888; margin:0;">起飛</p><p style="font-size:1.1rem; font-weight:800; color:white; margin:0;">{dep_t}</p></div>
+                                <div style="text-align:center;"><p style="font-size:0.6rem; color:#888; margin:0;">落地</p><p style="font-size:1.1rem; font-weight:800; color:white; margin:0;">{arr_t}</p></div>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
