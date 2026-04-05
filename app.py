@@ -38,7 +38,8 @@ st.markdown(f"""
                     linear-gradient(135deg, {user_color}88, #0E0E0E) border-box !important;
         margin-bottom: 10px !important;
     }}
-
+/* 🚀 請在這裡插入下方這段 */
+    .fc-daygrid-day-frame { min-height: 85px !important
     /* 🚀 月曆自定義：隱記非本月的格子 */
     .fc-day-other {{
         visibility: hidden !important; /* 隱藏非四月的格子內容 */
