@@ -24,19 +24,20 @@ if "current_user" not in st.session_state or st.session_state.current_user not i
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 ---
+# --- 1. 視覺風格 (1.8em 大字與色塊優化) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     [data-testid="stSidebar"] {{ background-color: #151515; border-right: 2px solid {user_color}; }}
     
-    /* 🚀 強制色塊填滿且無邊框 */
+    /* 🚀 讓所有 Event 標籤都強制變大字、置中、專屬色 */
     div.fc-event {{
         background-color: {user_color} !important;
         border: none !important;
+        background: {user_color} !important;
         border-radius: 4px !important;
-        margin: 1px 0 !important; /* 讓色塊看起來更連貫 */
+        margin: 1px 0 !important;
     }}
     
     .fc-event-title {{
@@ -51,6 +52,11 @@ st.markdown(f"""
         background: #1A1A1A; border-radius: 20px; padding: 25px;
         border: 2px solid {user_color}; margin-bottom: 15px;
     }}
+    
+    div.stButton > button {{
+        background-color: #262626; color: white; border: 1px solid #444;
+        font-weight: 900; width: 100%; border-radius: 12px; height: 3.5em;
+    }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -64,7 +70,7 @@ with st.sidebar:
             st.rerun()
     details_container = st.empty()
 
-# --- 3. 數據讀取與長班邏輯 ---
+# --- 3. 數據讀取與長班邏輯 (🚀 確保色塊連貫 + 末端顯示) ---
 calendar_events = []
 roster_lookup = {}
 
@@ -84,40 +90,36 @@ try:
                 f_no = str(row['班號']).strip()
                 memo = str(row.get('備註', '')).strip()
                 
-                # 🚀 判定長班終點
+                # 判定長班
                 end_dt = start_dt
                 rtn_fno = ""
-                # 抓取備註中的日期格式 (如 4/30)
                 date_match = re.search(r'(\d+)/(\d+)', memo)
                 if date_match:
                     try:
                         m, d = int(date_match.group(1)), int(date_match.group(2))
-                        # 建立終點日期
+                        # 建立回程日期 (如果是跨月如 4/30，這裡會精準抓到 4 月 30 日)
                         end_dt = datetime(start_dt.year, m, d)
-                        # 抓取日期後面的班號數字
-                        rtn_match = re.search(rf'{m}/{d}\s+(\d+)', memo)
+                        # 抓取班號 (如 4/30 074 裡的 074)
+                        rtn_match = re.search(r'\d+/\d+\s+(\d+)', memo)
                         if rtn_match: rtn_fno = rtn_match.group(1)
                     except: pass
 
-                # 1. 加入主長班連貫色塊
+                # 1. 建立「去程長色塊」：從去程日開始，長度拉到回程日
                 calendar_events.append({
                     "title": f_no,
                     "start": start_dt.strftime('%Y-%m-%d'),
                     "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
-                    "allDay": True,
-                    "backgroundColor": user_color
+                    "allDay": True
                 })
 
-                # 2. 🚀 如果是長班，在終點日疊加一個回程班號 (透明背景)
+                # 2. 🚀 關鍵補強：如果在回程日有班號，就在那天「加蓋一個獨立色塊」顯示回程班號
                 if end_dt > start_dt and rtn_fno:
                     calendar_events.append({
                         "title": rtn_fno,
                         "start": end_dt.strftime('%Y-%m-%d'),
                         "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
                         "allDay": True,
-                        "backgroundColor": "transparent",
-                        "borderColor": "transparent",
-                        "textColor": "white"
+                        "overlap": True # 允許重疊在長色塊之上
                     })
 
                 roster_lookup[start_dt.strftime('%Y-%m-%d')] = {"fno": f_no, "memo": memo}
