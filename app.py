@@ -22,23 +22,44 @@ if "clicked_date" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 ---
+# --- 1. 視覺風格 (🚀 強效橫排補丁) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     .block-container {{ padding-top: 0.5rem !important; padding-bottom: 0rem !important; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    [data-testid="stHorizontalBlock"] {{ gap: 0px !important; justify-content: flex-start !important; margin-left: -10px !important; }}
-    [data-testid="column"] {{ width: fit-content !important; flex: unset !important; padding: 0px !important; }}
-
-    .stButton > button {{
-        width: 78px !important; height: 38px !important;
-        font-size: 0.85rem !important; font-weight: 800 !important;
-        color: #888 !important; background-color: #1A1A1A !important;
-        border: 1px solid #333 !important; border-radius: 0px !important;
-        transition: all 0.3s ease !important;
+    /* 🚀 核心：強迫容器橫向排列且絕對不換行 */
+    div[data-testid="stHorizontalBlock"] {{ 
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important; /* 禁止換行 */
+        gap: 0px !important; 
+        justify-content: flex-start !important; 
+        margin-left: -15px !important; 
     }}
+    
+    [data-testid="column"] {{ 
+        width: auto !important; 
+        flex: 0 0 auto !important; 
+        padding: 0px !important; 
+    }}
+
+    /* 🚀 窄版按鈕設定 (72px) */
+    .stButton > button {{
+        width: 72px !important; 
+        height: 38px !important;
+        font-size: 0.8rem !important; 
+        font-weight: 800 !important;
+        color: #888 !important; 
+        background-color: #1A1A1A !important;
+        border: 1px solid #333 !important; 
+        border-radius: 0px !important;
+        transition: all 0.3s ease !important;
+        padding: 0px !important;
+    }}
+    
+    /* 膠囊圓角 */
     [data-testid="column"]:first-child button {{ border-top-left-radius: 12px !important; border-bottom-left-radius: 12px !important; }}
     [data-testid="column"]:nth-child(4) button {{ border-top-right-radius: 12px !important; border-bottom-right-radius: 12px !important; }}
 
@@ -62,12 +83,15 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 頂部導覽 ---
+# --- 2. 頂部導覽 (🚀 使用大比例空位推擠) ---
 st.markdown(f"<h1 style='color:{user_color}; font-weight:900; text-align:center; margin-bottom:5px; font-size:1.3rem;'>✈️ CAL SCHEDULE</h1>", unsafe_allow_html=True)
-c1, c2, c3, c4, c5 = st.columns([1,1,1,1,4])
+
+# 給四個按鈕各 1，最後一個空位給 8，確保它們縮在左邊
+c1, c2, c3, c4, c_empty = st.columns([1, 1, 1, 1, 8]) 
+btns = [c1, c2, c3, c4]
 for i, name in enumerate(CREW_CONFIG.keys()):
-    with [c1, c2, c3, c4][i]:
-        if st.button(name, key=f"nav_{name}"):
+    with btns[i]:
+        if st.button(name, key=f"nav_vfinal_{name}"):
             st.session_state.current_user = name
             st.session_state.clicked_date = None
             st.rerun()
@@ -75,7 +99,7 @@ for i, name in enumerate(CREW_CONFIG.keys()):
 st.markdown(f"<h2 style='margin: 5px 0; text-align:center; font-size:1.2rem; color:{user_color};'>💖 {st.session_state.current_user}</h2>", unsafe_allow_html=True)
 info_box = st.container()
 
-# --- 3. 數據解析 (🚀 一條龍填色邏輯) ---
+# --- 3. 數據解析 (長班一條龍填色) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 click_lookup = {}
@@ -115,22 +139,18 @@ try:
                 r_dt = pd.to_datetime(date_match.group(1))
                 r_date_str = r_dt.strftime('%Y-%m-%d')
                 
-                # 🚀 關鍵：用「橫槓」填滿中間的日子
                 if (r_dt - d_dt).days > 1:
-                    # 從去程隔天開始，到回程前一天
                     stay_start = (d_dt + timedelta(days=1)).strftime('%Y-%m-%d')
                     calendar_events.append({
-                        "title": " ", # 空白標題，只顯示顏色槓槓
+                        "title": " ", 
                         "start": stay_start, 
-                        "end": r_date_str, # end 不包含在內，所以會畫到回程前一天
+                        "end": r_date_str, 
                         "allDay": True
                     })
                 
-                # 回程當天顯示班號 (如果不同天)
                 if r_date_str != d_str:
                     calendar_events.append({"title": r_fno, "start": r_date_str, "allDay": True})
             
-            # 不論是否同天，點擊資訊都要有
             final_r_str = r_dt.strftime('%Y-%m-%d')
             if final_r_str not in click_lookup: click_lookup[final_r_str] = {"flights": [], "memo": "回程航班"}
             if r_fno not in click_lookup[final_r_str]["flights"]:
@@ -154,7 +174,7 @@ cal_state = calendar(
 if cal_state.get("eventClick"):
     st.session_state.clicked_date = cal_state["eventClick"]["event"]["start"].split('T')[0]
 
-# --- 5. 顯示卡片 (報到時間維持大字) ---
+# --- 5. 顯示卡片 ---
 if st.session_state.clicked_date:
     day_data = click_lookup.get(st.session_state.clicked_date)
     if day_data and day_data["flights"]:
