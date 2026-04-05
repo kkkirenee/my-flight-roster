@@ -20,12 +20,13 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (1.8em 超粗大字 + 無縫填滿) ---
+# --- 1. 視覺風格 (1.8em 超粗體 + 強制填滿) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
+    /* 🚀 消除格子間距，讓色塊連貫 */
     .fc-daygrid-event-harness {{ margin: 0 !important; padding: 0 !important; }}
     
     div.fc-event {{
@@ -33,17 +34,23 @@ st.markdown(f"""
         border: none !important;
         border-radius: 0px !important; 
         margin: 0 !important;
-        min-height: 3.2em !important;
+        min-height: 3.5em !important; /* 加高格子 */
         display: flex !important;
         align-items: center !important;
     }}
     
+    /* 🚀 外部強制大字鎖定 */
     .fc-event-title {{
         font-size: 1.8em !important; 
         font-weight: 900 !important; 
         color: white !important;
-        width: 100%;
-        text-align: center;
+        text-align: center !important;
+        width: 100% !important;
+    }}
+    
+    [data-testid="stSidebar"] {{
+        background-color: #151515;
+        border-right: 2px solid {user_color};
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -56,7 +63,7 @@ with st.sidebar:
             st.session_state.current_user = name
             st.rerun()
 
-# --- 3. 數據解析 (🚀 核心邏輯：填補中間純色塊) ---
+# --- 3. 數據解析 (長班拆解：頭/中/尾) ---
 calendar_events = []
 try:
     xl = pd.ExcelFile("CAL_Roster.xlsx")
@@ -69,10 +76,10 @@ try:
         f_no = str(row['班號']).strip()
         memo = str(row.get('備註', '')).strip()
 
-        # 找備註裡的日期與回程班號
+        # 解析長班日期 (例如 2026-04-11)
         end_dt = start_dt
         rtn_fno = ""
-        date_pattern = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', memo)
+        date_pattern = re.search(r'(\d{{4}}[-/]\d{{1,2}}[-/]\d{{1,2}})', memo)
         
         if date_pattern:
             try:
@@ -82,23 +89,22 @@ try:
             except: pass
 
         if end_dt > start_dt:
-            # 🚀 邏輯：長班拆解成三個部分
-            # (1) 去程當天：顯示班號 (57 / 73)
+            # 🚀 (1) 去程：顯示班號
             calendar_events.append({
                 "title": f_no,
                 "start": start_dt.strftime('%Y-%m-%d'),
                 "end": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
                 "allDay": True, "backgroundColor": user_color
             })
-            # (2) 中間天數：純色塊不顯示字 (8, 9, 10 號 / 27, 28, 29 號)
+            # 🚀 (2) 中間：純色塊 (不顯示字)
             if (end_dt - start_dt).days > 1:
                 calendar_events.append({
-                    "title": " ", # 空格代表不顯示字
+                    "title": " ", 
                     "start": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
                     "end": end_dt.strftime('%Y-%m-%d'),
                     "allDay": True, "backgroundColor": user_color
                 })
-            # (3) 回程當天：顯示回程班號 (058 / 074)
+            # 🚀 (3) 回程：顯示回程班號
             if rtn_fno:
                 calendar_events.append({
                     "title": rtn_fno,
@@ -118,8 +124,19 @@ try:
 except Exception as e:
     st.sidebar.error(f"讀取錯誤：{e}")
 
-# --- 4. 顯示月曆 ---
+# --- 4. 渲染月曆 (內部 CSS 雙重鎖定) ---
 st.title(f"💖 {st.session_state.current_user}")
+
+cal_custom_css = """
+    .fc-event-title { 
+        font-size: 1.8em !important; 
+        font-weight: 900 !important; 
+        display: block !important;
+        text-align: center !important;
+    }
+    .fc-event { border-radius: 0px !important; }
+"""
+
 calendar(
     events=calendar_events, 
     options={
@@ -128,5 +145,6 @@ calendar(
         "displayEventTime": False,
         "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
     }, 
-    key=st.session_state.current_user + "_vfinal"
+    custom_css=cal_custom_css,
+    key=st.session_state.current_user + "_final_v2"
 )
