@@ -24,38 +24,42 @@ if "current_user" not in st.session_state or st.session_state.current_user not i
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (1.8em 大字與色塊優化) ---
+# --- 1. 視覺風格 (暴力填滿縫隙) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     [data-testid="stSidebar"] {{ background-color: #151515; border-right: 2px solid {user_color}; }}
     
-    /* 🚀 讓所有 Event 標籤都強制變大字、置中、專屬色 */
+    /* 🚀 核心：消除所有縫隙，讓色塊 100% 填滿格子 */
+    .fc-daygrid-event-harness {{
+        margin: 0 !important;
+        padding: 0 !important;
+    }}
     div.fc-event {{
         background-color: {user_color} !important;
         border: none !important;
         background: {user_color} !important;
-        border-radius: 4px !important;
-        margin: 1px 0 !important;
+        border-radius: 0px !important; /* 長班用直角看起來更連貫 */
+        margin: 0 !important;
+        padding: 2px 0 !important;
+        min-height: 2.5em !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }}
     
     .fc-event-title {{
         font-size: 1.8em !important; 
         font-weight: 900 !important; 
-        text-align: center !important; 
         color: white !important;
-        padding: 4px 0;
+        width: 100%;
+        text-align: center;
     }}
 
     .report-card {{
         background: #1A1A1A; border-radius: 20px; padding: 25px;
         border: 2px solid {user_color}; margin-bottom: 15px;
-    }}
-    
-    div.stButton > button {{
-        background-color: #262626; color: white; border: 1px solid #444;
-        font-weight: 900; width: 100%; border-radius: 12px; height: 3.5em;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -70,7 +74,7 @@ with st.sidebar:
             st.rerun()
     details_container = st.empty()
 
-# --- 3. 數據讀取與長班邏輯 (🚀 確保色塊連貫 + 末端顯示) ---
+# --- 3. 數據讀取與長班邏輯 ---
 calendar_events = []
 roster_lookup = {}
 
@@ -90,36 +94,38 @@ try:
                 f_no = str(row['班號']).strip()
                 memo = str(row.get('備註', '')).strip()
                 
-                # 判定長班
+                # 判定長班終點
                 end_dt = start_dt
                 rtn_fno = ""
                 date_match = re.search(r'(\d+)/(\d+)', memo)
                 if date_match:
                     try:
                         m, d = int(date_match.group(1)), int(date_match.group(2))
-                        # 建立回程日期 (如果是跨月如 4/30，這裡會精準抓到 4 月 30 日)
                         end_dt = datetime(start_dt.year, m, d)
-                        # 抓取班號 (如 4/30 074 裡的 074)
                         rtn_match = re.search(r'\d+/\d+\s+(\d+)', memo)
                         if rtn_match: rtn_fno = rtn_match.group(1)
                     except: pass
 
-                # 1. 建立「去程長色塊」：從去程日開始，長度拉到回程日
+                # 1. 主長色塊 (確保全天事件)
                 calendar_events.append({
                     "title": f_no,
                     "start": start_dt.strftime('%Y-%m-%d'),
                     "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
-                    "allDay": True
+                    "allDay": True,
+                    "backgroundColor": user_color,
+                    "borderColor": user_color
                 })
 
-                # 2. 🚀 關鍵補強：如果在回程日有班號，就在那天「加蓋一個獨立色塊」顯示回程班號
+                # 2. 回程日加蓋字樣
                 if end_dt > start_dt and rtn_fno:
                     calendar_events.append({
                         "title": rtn_fno,
                         "start": end_dt.strftime('%Y-%m-%d'),
                         "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
                         "allDay": True,
-                        "overlap": True # 允許重疊在長色塊之上
+                        "backgroundColor": user_color,
+                        "borderColor": user_color,
+                        "overlap": True
                     })
 
                 roster_lookup[start_dt.strftime('%Y-%m-%d')] = {"fno": f_no, "memo": memo}
@@ -131,7 +137,12 @@ except Exception as e:
 st.title(f"💖 {st.session_state.current_user}'s Roster")
 calendar(
     events=calendar_events, 
-    options={"initialDate": today_str, "contentHeight": "auto", "displayEventTime": False}, 
-    custom_css=".fc-event-title { font-size: 1.8em !important; font-weight: 900 !important; }",
+    options={
+        "initialDate": today_str, 
+        "contentHeight": "auto", 
+        "displayEventTime": False,
+        "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
+    }, 
+    custom_css=f".fc-event {{ background-color: {user_color} !important; }} .fc-event-title {{ font-size: 1.8em !important; }}",
     key=f"cal_{st.session_state.current_user}"
 )
