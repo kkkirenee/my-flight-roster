@@ -20,7 +20,7 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (🚀 恢復 Today 按鈕點擊功能) ---
+# --- 1. 視覺風格 (🚀 暴力破解 Today 按鈕點擊) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
@@ -28,17 +28,12 @@ st.markdown(f"""
     
     /* 🚀 姓名按鈕 - 橫向炫炮 */
     .stButton > button {{
-        width: 100% !important;
-        height: 50px !important;
-        font-size: 1.2rem !important;
-        font-weight: 800 !important;
-        color: white !important;
-        background-color: #1A1A1A !important;
-        border-radius: 12px !important;
-        border: 2px solid transparent !important; 
+        width: 100% !important; height: 50px !important;
+        font-size: 1.2rem !important; font-weight: 800 !important;
+        color: white !important; background-color: #1A1A1A !important;
+        border-radius: 12px !important; border: 2px solid transparent !important; 
         transition: all 0.3s ease-in-out !important;
-        background-clip: padding-box; 
-        margin-bottom: 10px !important;
+        background-clip: padding-box; margin-bottom: 10px !important;
         background: linear-gradient(#1A1A1A, #1A1A1A) padding-box,
                     linear-gradient(135deg, {user_color}88, #0E0E0E) border-box !important;
     }}
@@ -46,32 +41,39 @@ st.markdown(f"""
         background: linear-gradient(#262626, #262626) padding-box,
                     linear-gradient(135deg, white, {user_color}) border-box !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 0 15px {user_color}88 !important;
     }}
 
     /* 🚀 月曆事件純色 */
     div.fc-event, .fc-daygrid-event, .fc-event-main {{
-        background-color: {user_color} !important;
-        border: none !important;
+        background-color: {user_color} !important; border: none !important;
     }}
     .fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}
 
-    /* 🚀 Today 按鈕功能修復：確保可點擊 */
-    .fc .fc-button-primary {{
+    /* 🚀 暴力解決 Today 按鈕點擊問題 */
+    /* 1. 先把所有可能擋住點擊的層級全部設為透明或穿透 */
+    .fc .fc-toolbar {{ position: relative; z-index: 999; pointer-events: auto !important; }}
+    
+    /* 2. 重塑 Today 按鈕：確保它是最高層級且指標是手指 */
+    .fc .fc-today-button, .fc-button-primary {{
         background-color: transparent !important;
-        border: 1px solid {user_color} !important;
+        background-image: none !important;
+        border: 2px solid {user_color} !important;
         color: {user_color} !important;
-        z-index: 10 !important; /* 確保在最上層 */
+        font-weight: 800 !important;
+        opacity: 1 !important;
         cursor: pointer !important;
-        text-transform: capitalize !important;
+        pointer-events: auto !important; /* 核心：強制允許點擊 */
+        position: relative !important;
+        z-index: 1000 !important;
     }}
-    .fc .fc-button-primary:hover {{
-        background-color: {user_color}11 !important;
+    
+    /* 消除按鈕按下後的藍色框框 */
+    .fc .fc-button-primary:focus {{ box-shadow: none !important; }}
+    
+    /* 懸停效果 */
+    .fc .fc-today-button:hover {{
+        background-color: {user_color}33 !important;
         color: white !important;
-    }}
-    .fc .fc-button-primary:disabled {{
-        opacity: 0.3 !important;
-        cursor: not-allowed !important;
     }}
 
     /* 🚀 航班資訊卡片 */
@@ -84,6 +86,18 @@ st.markdown(f"""
     .time-val {{ font-size: 1.5rem !important; font-weight: 800; color: white; }}
     .time-box {{ display: flex; justify-content: space-between; background: #262626; padding: 15px; border-radius: 12px; margin: 10px 0; border: 1px solid #333; }}
     </style>
+    
+    <script>
+    // 🚀 JavaScript 暴力接管邏輯：只要看到按鈕，就強行移除所有阻礙
+    const observer = new MutationObserver(() => {{
+        const todayBtn = document.querySelector('.fc-today-button');
+        if (todayBtn) {{
+            todayBtn.style.pointerEvents = 'auto';
+            todayBtn.style.cursor = 'pointer';
+        }}
+    }});
+    observer.observe(document.body, {{ childList: true, subtree: true }});
+    </script>
     """, unsafe_allow_html=True)
 
 # --- 2. 側邊欄 ---
@@ -116,38 +130,39 @@ try:
         d_key = start_dt.strftime('%Y-%m-%d')
         flight_list = [f_no]
         rtn_fno = ""
-        date_pattern = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', memo)
+        date_pattern = re.search(r'(\d{{4}}[-/]\d{{1,2}}[-/]\d{{1,2}})', memo)
         rtn_match = re.search(r'回程\s*(\d+)', memo)
         if rtn_match:
             rtn_fno = rtn_match.group(1)
             if not date_pattern: flight_list.append(rtn_fno)
-        click_lookup[d_key] = {"flights": flight_list, "memo": memo}
-        calendar_events.append({"title": f_no, "start": d_key, "end": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True})
+        click_lookup[d_key] = {{"flights": flight_list, "memo": memo}}
+        calendar_events.append({{"title": f_no, "start": d_key, "end": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True}})
         if date_pattern:
             try:
                 end_dt = pd.to_datetime(date_pattern.group(1))
                 if end_dt > start_dt:
                     if (end_dt - start_dt).days > 1:
-                        calendar_events.append({"title": " ", "start": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "end": end_dt.strftime('%Y-%m-%d'), "allDay": True})
+                        calendar_events.append({{"title": " ", "start": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "end": end_dt.strftime('%Y-%m-%d'), "allDay": True}})
                     r_key = end_dt.strftime('%Y-%m-%d')
-                    click_lookup[r_key] = {"flights": [rtn_fno], "memo": f"回程自 {start_dt.strftime('%m/%d')} CI{f_no}"}
-                    calendar_events.append({"title": rtn_fno, "start": r_key, "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True})
+                    click_lookup[r_key] = {{"flights": [rtn_fno], "memo": f"回程自 {{start_dt.strftime('%m/%d')}} CI{{f_no}}"}}
+                    calendar_events.append({{"title": rtn_fno, "start": r_key, "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True}})
             except: pass
 except Exception as e:
-    st.sidebar.error(f"錯誤：{e}")
+    st.sidebar.error(f"錯誤：{{e}}")
 
 # --- 4. 渲染月曆 (🚀 加強 Today 點擊權限) ---
-st.title(f"💖 {st.session_state.current_user}")
+st.title(f"💖 {{st.session_state.current_user}}")
 cal_css = f"""
     .fc-event, .fc-event-main {{ background-color: {user_color} !important; border: none !important; }}
     .fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}
-    .fc .fc-button-primary {{ border: 1px solid {user_color} !important; color: {user_color} !important; pointer-events: auto !important; }}
+    /* 🚀 鎖定 Today 按鈕的點擊屬性 */
+    .fc-today-button {{ pointer-events: auto !important; cursor: pointer !important; z-index: 1000 !important; }}
 """
 state = calendar(
     events=calendar_events, 
-    options={"initialDate": "2026-04-01", "displayEventTime": False}, 
+    options={{"initialDate": "2026-04-01", "displayEventTime": False, "headerToolbar": {{"left": "prev,next today", "center": "title", "right": ""}}}}, 
     custom_css=cal_css,
-    key=f"cal_vfinal_clickable_{st.session_state.current_user}"
+    key=f"cal_vfinal_touchable_{{st.session_state.current_user}}"
 )
 
 # --- 5. 點擊顯示 ---
@@ -171,14 +186,14 @@ if state.get("eventClick"):
                     arr_t = get_v(['落地時間', '降落時間', '降落', 'ARR'])
                     st.markdown(f"""
                         <div class="flight-card">
-                            <p class="card-title">CI {target_f}</p>
-                            <p class="card-dest">📍 {dest}</p>
-                            <p style="font-size:1rem; color:#BBB; margin-bottom:10px;">⏰ 報到時間: {report}</p>
+                            <p class="card-title">CI {{target_f}}</p>
+                            <p class="card-dest">📍 {{dest}}</p>
+                            <p style="font-size:1rem; color:#BBB; margin-bottom:10px;">⏰ 報到時間: {{report}}</p>
                             <div class="time-box">
-                                <div style="text-align:center;"><p class="time-label">起飛 DEP</p><p class="time-val">{dep_t}</p></div>
+                                <div style="text-align:center;"><p class="time-label">起飛 DEP</p><p class="time-val">{{dep_t}}</p></div>
                                 <div style="align-self:center; color:#555; font-size:1.5rem;">✈️</div>
-                                <div style="text-align:center;"><p class="time-label">落地 ARR</p><p class="time-val">{arr_t}</p></div>
+                                <div style="text-align:center;"><p class="time-label">落地 ARR</p><p class="time-val">{{arr_t}}</p></div>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
-            st.caption(f"💡 資訊：{info['memo']}")
+            st.caption(f"💡 資訊：{{info['memo']}}")
