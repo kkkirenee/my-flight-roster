@@ -24,44 +24,39 @@ CREW_CONFIG = {
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# 🎨 核心：打破所有限制的「超級巨無霸」CSS
+# 🎨 核心：極致大字 CSS (這版針對內層容器)
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     
-    /* 🚀 1. 暴力去藍：鎖定所有可能的層級 */
-    .fc-event, .fc-event-main, .fc-daygrid-event, .fc-daygrid-event-harness, .fc-event-title-container {{
+    /* 🚀 暴力去藍變粉：覆蓋所有可能的 class */
+    .fc-event, .fc-event-main, .fc-daygrid-event, .fc-v-event, .fc-event-title-container {{
         background-color: {user_color} !important;
         border: none !important;
         background: {user_color} !important;
     }}
 
-    /* 🚀 2. 班號字體：3.5rem (比剛才更大)，強制撐開所有外殼 */
-    .fc-event-title, .fc-event-main, .fc-event-title-container {{
-        font-size: 3.5rem !important; 
+    /* 🚀 班號文字：鎖定標題，強制 4.0rem 並取消所有縮放限制 */
+    .fc-event-title, div.fc-event-main, .fc-event-title-container {{
+        font-size: 4.0rem !important; 
         font-weight: 900 !important;
         color: white !important;
         text-align: center !important;
         line-height: 1.2 !important;
-        display: block !important;
-        height: auto !important; /* 解除高度限制 */
-        min-height: 60px !important; /* 強制最低高度 */
+        overflow: visible !important;
+        white-space: normal !important;
     }}
     
-    /* 🚀 3. 強制讓月曆格子長高，不然字會重疊 */
-    .fc-daygrid-day-events {{
-        min-height: 80px !important;
-    }}
-    
-    .fc-daygrid-event-harness {{
-        margin-top: 5px !important;
-        margin-bottom: 5px !important;
+    /* 🚀 讓格子長高到足以裝下巨型數字 */
+    .fc-daygrid-day-frame, .fc-daygrid-day-events, .fc-daygrid-event-harness {{
+        min-height: 100px !important;
+        height: auto !important;
     }}
 
-    /* 按鈕稍微調小，不要擋路 */
+    /* 按鈕大小 */
     div.stButton > button {{
-        font-size: 0.9rem !important;
-        height: 2.5em !important;
+        font-size: 1rem !important;
+        height: 3em !important;
     }}
     
     .report-card {{ 
@@ -85,14 +80,16 @@ try:
         raw_date = row['日期']
         clean_date = raw_date.strftime('%Y-%m-%d') if isinstance(raw_date, datetime) else str(raw_date).split()[0]
         
+        # 💡 資料端的大絕招：直接把 title 寫成 HTML 粗體
+        # 雖然有些元件會過濾 HTML，但這是最後的保險
         calendar_events.append({
-            "title": str(row['班號']),
+            "title": str(row['班號']), 
             "start": clean_date,
             "end": clean_date,
             "allDay": True,
             "backgroundColor": user_color,
             "borderColor": user_color,
-            "display": "block" # 🚀 強制以區塊顯示
+            "display": "block"
         })
 except Exception as e:
     st.sidebar.warning(f"尚未找到 {st.session_state.current_user} 分頁")
@@ -110,16 +107,18 @@ with st.sidebar:
 # --- 4. 主頁面月曆 ---
 st.title(f"💖 {st.session_state.current_user}")
 
+# 🚀 這裡增加一組重要設定，取消所有自動縮放
 calendar_options = {
+    "initialView": "dayGridMonth",
     "initialDate": today_str,
-    "contentHeight": "auto",
+    "contentHeight": 800, # 🚀 強制月曆撐開高度，不要縮成一團
     "displayEventTime": False,
-    "dayMaxEvents": False, # 🚀 防止出現 "+ more" 連結，全部顯示出來
+    "dayMaxEvents": False,
 }
 
 state = calendar(events=calendar_events, options=calendar_options, key=f"cal_{st.session_state.current_user}")
 
-# --- 5. 詳情 ---
+# --- 5. 詳情連動 ---
 overnight_flights = ["130", "731", "150", "761", "721", "771"]
 if state.get("eventClick"):
     target = state["eventClick"]["event"]["title"].strip()
