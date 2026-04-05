@@ -26,49 +26,48 @@ st.markdown(f"""
     .stApp {{ background-color: #0E0E0E; color: white; }}
     .block-container {{ padding-top: 0.5rem !important; padding-bottom: 0rem !important; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
-/* 🚀 1. 儀表板組合：全部靠左齊平，並留出呼吸空間 */
-    div[data-testid="stHorizontalBlock"] {{
+/* 🚀 1. 儀表板組合：徹底消除間距，讓按鈕「聚集」在左邊 */
+    div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 3px !important; /* 🚀 留 3px 縫隙，讓圓角跟呼吸光跳出來 */
-        justify-content: flex-start !important; /* 🚀 全部靠左 */
+        gap: 4px !important; /* 按鈕間的小呼吸縫隙 */
+        justify-content: flex-start !important; /* 絕對靠左 */
         align-items: center !important;
-        padding: 0px 5px !important; /* 左右留一點邊距，比較精緻 */
-        margin: 0px !important;
-    }}
+        padding: 0px !important;
+        margin-left: -10px !important; /* 🚀 暴力負邊距：修正側邊欄留白，讓它更靠左 */
+    }
 
-    [data-testid="column"] {{
-        width: 23.5% !important; /* 🚀 寬度微縮，確保四個能排在左側 */
-        flex: 0 0 23.5% !important; /* 🚀 固定大小靠左 */
+    [data-testid="column"] {
+        width: fit-content !important; /* 🚀 寬度隨字變，不要平分 25% */
+        flex: 0 0 auto !important;     /* 🚀 這是關鍵：不准撐開空間 */
         padding: 0px !important;
         margin: 0px !important;
-    }}
+    }
 
-    /* 🚀 2. 獨立霓虹圓角按鈕 */
-    .stButton > button {{
-        width: 100% !important; 
-        height: 38px !important; /* 高度稍微降一點點更精緻 */
-        font-size: 0.85rem !important; /* 字體大一點點，確保名字清晰 */
+    /* 🚀 2. 姓名按鈕：炫炮獨立圓角 + 呼吸光 */
+    .stButton > button {
+        width: 75px !important;  /* 🚀 固定每個按鈕寬度，讓它們「聚」在一起 */
+        height: 38px !important;
+        font-size: 0.8rem !important;
         font-weight: 800 !important;
-        color: #888 !important; /* 未選中時淡淡的 */
+        color: #888 !important;
         background: #1A1A1A !important;
-        border: 2px solid #333 !important; /* 🚀 獨立邊框 */
-        border-radius: 12px !important; /* 🚀 每個按鈕都有漂亮的圓角 */
+        border: 2px solid #333 !important;
+        border-radius: 12px !important; /* 🚀 保留妳要的漂亮圓角 */
         padding: 0px !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; /* 🚀 滑順的過場 */
-        position: relative;
-    }}
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
 
-    /* 🚀 3. 選中狀態：妳要的炫炮「呼吸霓虹光」回歸 */
-    .stButton > button:focus, .stButton > button:active, .stButton > button:hover {{
+    /* 🚀 3. 選中狀態：妳要的呼吸霓虹光 */
+    .stButton > button:focus, .stButton > button:active, .stButton > button:hover {
         background: {user_color} !important;
         color: white !important;
-        box-shadow: 0 0 18px {user_color}88 !important; /* 🚀 呼吸霓虹光 (霓虹發光) */
-        border: 2px solid white !important; /* 選中時邊框變白跳出來 */
+        box-shadow: 0 0 15px {user_color}AA !important; /* 呼吸霓虹光 */
+        border: 2px solid white !important;
         z-index: 10;
-        transform: translateY(-2px); /* 🚀 點擊時微浮凸感 */
-    }}
+        transform: scale(1.05); /* 輕微放大感 */
+    }
 
     /* 消除電腦版懸停時的預設Streamlit藍色 */
     .stButton > button:focus:not(:active) {{
