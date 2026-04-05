@@ -26,7 +26,6 @@ st.markdown(f"""
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 強制色塊填滿與配色 */
     div.fc-event, div.fc-event-main, .fc-daygrid-event {{
         background-color: {user_color} !important;
         background: {user_color} !important;
@@ -39,7 +38,6 @@ st.markdown(f"""
         cursor: pointer !important;
     }}
     
-    /* 🚀 霸氣大字 */
     .fc-event-title {{
         font-size: 2.2em !important; 
         font-weight: 900 !important; 
@@ -51,7 +49,6 @@ st.markdown(f"""
 
     .fc-daygrid-day-frame {{ min-height: 120px !important; }}
 
-    /* 🚀 漂漂亮亮資訊卡片 */
     .flight-card {{
         background: #1A1A1A; border-radius: 20px; padding: 25px;
         border: 4px solid {user_color}; margin-top: 15px;
@@ -75,7 +72,7 @@ with st.sidebar:
     st.divider()
     info_placeholder = st.container()
 
-# --- 3. 數據解析 (保持功能一模一樣) ---
+# --- 3. 數據解析 (功能完全保留) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 click_lookup = {} 
@@ -99,7 +96,7 @@ try:
 
         flight_list = [f_no]
         rtn_fno = ""
-        date_pattern = re.search(r'(\d{{4}}[-/]\d{{1,2}}[-/]\d{{1,2}})', memo)
+        date_pattern = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', memo)
         rtn_match = re.search(r'回程\s*(\d+)', memo)
         
         if rtn_match:
@@ -122,20 +119,26 @@ try:
 except Exception as e:
     st.sidebar.error(f"讀取錯誤：{e}")
 
-# --- 4. 渲染月曆 ---
+# --- 4. 渲染月曆 (🚀 修正後的語法) ---
 st.title(f"💖 {st.session_state.current_user}")
 cal_custom_css = f"""
     .fc-event, div.fc-event-main {{ background-color: {user_color} !important; border: none !important; }}
     .fc-event-title {{ font-size: 2.2em !important; font-weight: 900 !important; }}
 """
+
+# 🚀 這裡已經把多餘的大括號拔掉了！
 state = calendar(
     events=calendar_events, 
-    options={{"initialDate": "2026-04-01", "displayEventTime": False, "headerToolbar": {{"left": "prev,next today", "center": "title", "right": ""}}}}, 
+    options={
+        "initialDate": "2026-04-01", 
+        "displayEventTime": False, 
+        "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}
+    }, 
     custom_css=cal_custom_css,
-    key=f"cal_final_ultimate_{st.session_state.current_user}"
+    key=f"cal_final_stable_{st.session_state.current_user}"
 )
 
-# --- 5. 點擊顯示 (功能完美鎖定：目的地、報到、起飛、落地) ---
+# --- 5. 點擊顯示 (功能鎖死：落地、報到、起飛) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = click_lookup.get(clicked_date)
