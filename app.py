@@ -12,26 +12,26 @@ tw_tz = pytz.timezone('Asia/Taipei')
 now_tw = datetime.now(tw_tz)
 today_str = now_tw.strftime("%Y-%m-%d")
 
+# 🚀 嚴格對齊妳的 Excel 分頁名稱
 if "current_user" not in st.session_state:
     st.session_state.current_user = "Irene"
 
-# 四姊妹專屬配色 (確保這裡的顏色是妳最愛的粉與紫)
 CREW_CONFIG = {
-    "Irene": {"color": "#F07699", "icon": "🌸"},
-    "Isabelle": {"color": "#A28CF0", "icon": "👤"},
-    "小米": {"color": "#76C9F0", "icon": "👤"},
-    "大飄": {"color": "#F0B476", "icon": "👤"}
+    "Irene": {"color": "#F07699", "icon": "🌸", "sheet": "Irene"},
+    "Isabelle": {"color": "#A28CF0", "icon": "👤", "sheet": "Isabelle"},
+    "Elaine": {"color": "#76C9F0", "icon": "👤", "sheet": "Elaine"},
+    "Bigpiao": {"color": "#F0B476", "icon": "👤", "sheet": "Bigpiao"}
 }
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (1.8em 大字與 CSS 強制鎖色) ---
+# --- 1. 視覺風格 (1.8em 大字與配色強力鎖定) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     [data-testid="stSidebar"] {{ background-color: #151515; border-right: 2px solid {user_color}; }}
     
-    /* 🚀 暴力去藍：強制覆蓋所有月曆標籤顏色 */
+    /* 🚀 暴力鎖色：強制覆蓋月曆所有標籤 */
     div.fc-event, div.fc-event-main, div.fc-daygrid-event {{
         background-color: {user_color} !important;
         border-color: {user_color} !important;
@@ -44,6 +44,7 @@ st.markdown(f"""
         font-weight: 900 !important; 
         text-align: center !important; 
         color: white !important;
+        padding: 5px 0;
     }}
 
     .report-card {{
@@ -71,7 +72,7 @@ with st.sidebar:
     st.divider()
     details_container = st.empty()
 
-# --- 3. 數據讀取 (長班連線 + 待命 + 顏色鎖死) ---
+# --- 3. 數據讀取 (長班連線 + 待命 + 分頁精準匹配) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 roster_lookup = {}
@@ -84,11 +85,13 @@ try:
     
     if os.path.exists("CAL_Roster.xlsx"):
         xl = pd.ExcelFile("CAL_Roster.xlsx")
-        # 匹配分頁 (無視空格、包含關鍵字)
-        target_sheet = next((s for s in xl.sheet_names if st.session_state.current_user in s), None)
+        target_sheet = CREW_CONFIG[st.session_state.current_user]["sheet"]
         
-        if target_sheet:
-            user_df = pd.read_excel(xl, sheet_name=target_sheet)
+        # 🚀 確保分頁名稱完全符合 (並過濾掉可能的空格)
+        real_sheet = next((s for s in xl.sheet_names if s.strip() == target_sheet), None)
+        
+        if real_sheet:
+            user_df = pd.read_excel(xl, sheet_name=real_sheet)
             user_df.columns = user_df.columns.str.strip()
             
             for _, row in user_df.iterrows():
@@ -99,7 +102,7 @@ try:
                     f_no = str(row['班號']).strip()
                     memo = str(row.get('備註', '')).strip()
                     
-                    # 🚀 長班連線邏輯
+                    # 長班連線邏輯
                     end_date = start_date
                     date_match = re.search(r'(\d+)/(\d+)', memo)
                     if date_match:
@@ -111,15 +114,13 @@ try:
                     date_key = start_date.strftime('%Y-%m-%d')
                     roster_lookup[date_key] = {"fno": f_no, "memo": memo}
                     
-                    # 🚀 這裡直接把 user_color 餵給每一個 Event，這招最有效
                     calendar_events.append({
                         "title": f_no,
                         "start": start_date.strftime('%Y-%m-%d'),
                         "end": (end_date + timedelta(days=1)).strftime('%Y-%m-%d'),
                         "allDay": True,
                         "backgroundColor": user_color,
-                        "borderColor": user_color,
-                        "color": user_color
+                        "borderColor": user_color
                     })
                 except: continue
 except Exception as e:
@@ -128,17 +129,14 @@ except Exception as e:
 # --- 4. 主月曆 (鎖死 1.8em 大字) ---
 st.title(f"💖 {st.session_state.current_user}'s Roster")
 
-# 把 custom_css 放在月曆元件裡雙重保護
-cal_css = f".fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }} .fc-event {{ background-color: {user_color} !important; border: none !important; }}"
-
 state = calendar(
     events=calendar_events, 
     options={"initialDate": today_str, "contentHeight": "auto", "displayEventTime": False, "dayMaxEvents": False}, 
-    custom_css=cal_css,
+    custom_css=f".fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}",
     key=f"cal_{st.session_state.current_user}"
 )
 
-# --- 5. 詳情顯示 (略，保持一致) ---
+# --- 5. 詳情顯示 ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = roster_lookup.get(clicked_date, {})
