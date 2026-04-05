@@ -15,33 +15,47 @@ CREW_CONFIG = {
     "Bigpiao": {"color": "#F0B476", "sheet": "Bigpiao"}
 }
 
+# 🚀 這裡可以改預設進去是誰！
 if "current_user" not in st.session_state:
-    st.session_state.current_user = "Elaine"
+    st.session_state.current_user = "Irene" 
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (🚀 手機頂部按鈕補丁) ---
+# --- 1. 視覺風格 (🚀 強制橫向按鈕補丁) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     .block-container {{ padding-top: 0.5rem !important; padding-bottom: 0rem !important; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 讓手機版的按鈕不要太擠 */
+    /* 🚀 強制讓 columns 在手機上也不要換行，保持橫向 */
+    [data-testid="column"] {{
+        width: calc(25% - 5px) !important;
+        flex: 1 1 calc(25% - 5px) !important;
+        min-width: calc(25% - 5px) !important;
+    }}
+    div[data-testid="stHorizontalBlock"] {{
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 5px !important;
+    }}
+
     .stButton > button {{
-        width: 100% !important; height: 45px !important;
-        font-size: 1rem !important; font-weight: 800 !important;
+        width: 100% !important; height: 42px !important;
+        font-size: 0.85rem !important; /* 縮小一點點字，確保橫排塞得下 */
+        font-weight: 800 !important;
+        padding: 0 !important;
         color: white !important; background-color: #1A1A1A !important;
         border-radius: 10px !important; border: 2px solid transparent !important; 
         background: linear-gradient(#1A1A1A, #1A1A1A) padding-box,
                     linear-gradient(135deg, {user_color}88, #0E0E0E) border-box !important;
     }}
 
-    /* 🚀 手機版 RWD 調整 */
+    /* 📱 手機版微調 */
     @media (max-width: 768px) {{
         .fc-event-title {{ font-size: 1.1em !important; }}
         .fc-daygrid-day-frame {{ min-height: 60px !important; }}
-        /* 隱藏側邊欄的提示，因為我們把按鈕移到主畫面了 */
         [data-testid="stSidebar"] {{ display: none; }}
     }}
 
@@ -54,11 +68,10 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 頂部導覽區 (🚀 取代側邊欄，讓手機直接選人) ---
-# 在主頁面最上方放一排按鈕
-st.markdown(f"<h1 style='color:{user_color}; font-weight:900; text-align:center; margin-bottom:5px; font-size:1.5rem;'>✈️ CAL SCHEDULE</h1>", unsafe_allow_html=True)
+# --- 2. 頂部導覽區 ---
+st.markdown(f"<h1 style='color:{user_color}; font-weight:900; text-align:center; margin-bottom:5px; font-size:1.3rem;'>✈️ CAL SCHEDULE</h1>", unsafe_allow_html=True)
 
-# 使用 columns 做出橫向按鈕列
+# 🚀 這裡就是強制橫排的四個按鈕
 cols = st.columns(4)
 names = list(CREW_CONFIG.keys())
 for i, name in enumerate(names):
@@ -66,7 +79,7 @@ for i, name in enumerate(names):
         st.session_state.current_user = name
         st.rerun()
 
-st.markdown(f"<h2 style='margin: 10px 0; text-align:center;'>💖 {st.session_state.current_user}</h2>", unsafe_allow_html=True)
+st.markdown(f"<h2 style='margin: 5px 0; text-align:center; font-size:1.2rem;'>💖 {st.session_state.current_user}</h2>", unsafe_allow_html=True)
 info_placeholder = st.container()
 
 # --- 3. 數據解析 (維持邏輯) ---
@@ -121,10 +134,10 @@ state = calendar(
         "height": "auto"
     }, 
     custom_css=f".fc-event-title {{ font-weight: 900 !important; }}",
-    key=f"cal_vfinal_mobile_top_{st.session_state.current_user}"
+    key=f"cal_vfinal_mobile_row_{st.session_state.current_user}"
 )
 
-# --- 5. 點擊顯示 (卡片邏輯) ---
+# --- 5. 點擊顯示 (卡片維持精緻版) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = click_lookup.get(clicked_date)
@@ -140,13 +153,12 @@ if state.get("eventClick"):
                             if k in r and str(r[k]).strip() != "": return str(r[k]).strip()
                         return "--:--"
                     dest = get_v(['目的地', '地點'])
-                    report = get_v(['報到時間', '報到'])
                     dep_t = get_v(['起飛時間', '起飛'])
                     arr_t = get_v(['落地時間', '降落時間', '落地'])
                     st.markdown(f"""
-                        <div class="flight-card" style="background:#1A1A1A; border-radius:15px; padding:15px; border:3px solid {user_color}; margin-top:10px;">
+                        <div style="background:#1A1A1A; border-radius:15px; padding:15px; border:3px solid {user_color}; margin-top:10px;">
                             <p style="color:{user_color}; font-size:1rem; font-weight:900; margin:0;">CI {target_f}</p>
-                            <p style="font-size:1.5rem; font-weight:950; margin:5px 0;">📍 {dest}</p>
+                            <p style="font-size:1.4rem; font-weight:950; margin:5px 0;">📍 {dest}</p>
                             <div style="display:flex; justify-content:space-between; background:#262626; padding:8px; border-radius:10px;">
                                 <div style="text-align:center;"><p style="font-size:0.6rem; color:#888; margin:0;">起飛</p><p style="font-size:1.1rem; font-weight:800; color:white; margin:0;">{dep_t}</p></div>
                                 <div style="text-align:center;"><p style="font-size:0.6rem; color:#888; margin:0;">落地</p><p style="font-size:1.1rem; font-weight:800; color:white; margin:0;">{arr_t}</p></div>
