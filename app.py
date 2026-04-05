@@ -10,7 +10,7 @@ st.set_page_config(page_title="CAL SCHEDULE", layout="wide")
 
 CREW_CONFIG = {
     "Irene": {"color": "#F07699", "sheet": "Irene"},
-    "Isabelle": {"color": "#A28CF0", "sheet": "Isabelle"}, # 🚀 紫色在這裡！
+    "Isabelle": {"color": "#A28CF0", "sheet": "Isabelle"},
     "Elaine": {"color": "#76C9F0", "sheet": "Elaine"},
     "Bigpiao": {"color": "#F0B476", "sheet": "Bigpiao"}
 }
@@ -20,17 +20,16 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (配色鎖死 + 2.2em 大字) ---
+# --- 1. 視覺風格 (2.2em 大字 + 顏色強力鎖定) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 強制讓格子和色塊都是對應顏色 */
+    /* 🚀 強制讓所有色塊都噴出正確的顏色 */
     div.fc-event, div.fc-event-main, .fc-daygrid-event {{
         background-color: {user_color} !important;
         background: {user_color} !important;
-        border-color: {user_color} !important;
         border: none !important;
         border-radius: 0px !important; 
         margin: 0 !important;
@@ -72,7 +71,7 @@ with st.sidebar:
     st.divider()
     info_placeholder = st.empty()
 
-# --- 3. 數據解析 ---
+# --- 3. 數據解析 (🚀 核心：建立回程班號的索引) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 click_lookup = {} 
@@ -94,7 +93,7 @@ try:
         memo = str(row.get('備註', '')).strip()
         d_key = start_dt.strftime('%Y-%m-%d')
 
-        # 找回程日期
+        # 搜尋備註裡有沒有回程班號
         end_dt = start_dt
         rtn_fno = ""
         date_pattern = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', memo)
@@ -104,30 +103,32 @@ try:
                 rtn_match = re.search(r'回程\s*(\d+)', memo)
                 if rtn_match: rtn_fno = rtn_match.group(1)
             except: pass
-
-        # 存入對照表
-        click_lookup[d_key] = {"fno": f_no, "memo": memo}
         
+        # 針對當天來回班(如 112/113) 也要抓出回程
+        if not rtn_fno:
+            single_day_match = re.search(r'回程\s*(\d+)', memo)
+            if single_day_match: rtn_fno = single_day_match.group(1)
+
+        # 存入去程資訊
+        click_lookup[d_key] = {"fno": f_no, "memo": memo}
         calendar_events.append({"title": f_no, "start": d_key, "end": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True})
 
         if end_dt > start_dt:
+            # 中間純色塊
             if (end_dt - start_dt).days > 1:
                 calendar_events.append({"title": " ", "start": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "end": end_dt.strftime('%Y-%m-%d'), "allDay": True})
+            # 🚀 回程資訊：存入索引以便點擊時去 CSV 撈
             if rtn_fno:
                 r_key = end_dt.strftime('%Y-%m-%d')
                 click_lookup[r_key] = {"fno": rtn_fno, "memo": f"回程自 {start_dt.strftime('%m/%d')} CI{f_no}"}
                 calendar_events.append({"title": rtn_fno, "start": r_key, "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True})
 
 except Exception as e:
-    st.sidebar.error(f"Excel 讀取失敗：{e}")
+    st.sidebar.error(f"讀取錯誤：{e}")
 
 # --- 4. 渲染月曆 ---
 st.title(f"💖 {st.session_state.current_user}")
-cal_custom_css = f"""
-    .fc-event, div.fc-event-main {{ background-color: {user_color} !important; border: none !important; }}
-    .fc-event-title {{ font-size: 2.2em !important; font-weight: 900 !important; }}
-"""
-
+cal_custom_css = f".fc-event-title {{ font-size: 2.2em !important; font-weight: 900 !important; }}"
 state = calendar(
     events=calendar_events, 
     options={"initialDate": "2026-04-01", "contentHeight": "auto", "displayEventTime": False, "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}}, 
@@ -135,15 +136,13 @@ state = calendar(
     key=f"cal_final_{st.session_state.current_user}"
 )
 
-# --- 5. 點擊顯示起降資訊 ---
+# --- 5. 🚀 點擊顯示 (去 CSV 撈去/回程資訊) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = click_lookup.get(clicked_date)
     if info:
         target_f = str(info['fno']).upper().replace('CI', '').strip()
-        match = pd.DataFrame()
-        if not flight_db.empty:
-            match = flight_db[flight_db['f_clean'] == target_f]
+        match = flight_db[flight_db['f_clean'] == target_f] if not flight_db.empty else pd.DataFrame()
         
         with info_placeholder.container():
             if not match.empty:
