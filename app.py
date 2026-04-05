@@ -20,13 +20,13 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (暴力破解縫隙) ---
+# --- 1. 視覺風格 (最強暴力字體鎖定) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 核心：強制消除格子與色塊之間的所有間距 */
+    /* 🚀 讓色塊像油漆一樣完全填滿 */
     .fc-daygrid-event-harness {{ 
         margin: 0 !important; 
         padding: 0 !important;
@@ -35,30 +35,32 @@ st.markdown(f"""
         margin: 0 !important;
         padding: 0 !important;
     }}
-    .fc-event {{
-        margin: 0 !important;
-        padding: 0 !important;
-        border: none !important;
-        border-radius: 0px !important;
+    
+    div.fc-event {{
         background-color: {user_color} !important;
-        min-height: 4.5em !important; /* 撐開高度 */
+        border: none !important;
+        border-radius: 0px !important; 
+        margin: 0 !important;
+        min-height: 4.5em !important; 
         display: flex !important;
         align-items: center !important;
+        justify-content: center !important;
     }}
     
-    /* 🚀 霸氣大字鎖定 */
+    /* 🚀 字體絕對加粗 + 放大 (2em + Scale 強化) */
     .fc-event-title {{
-        font-size: 1.8em !important; 
+        font-size: 2em !important; 
         font-weight: 900 !important; 
         color: white !important;
         text-align: center !important;
         width: 100% !important;
         display: block !important;
+        transform: scale(1.1); 
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
     }}
 
-    /* 讓日期格子的外框不要太明顯，減少視覺斷層 */
-    .fc-theme-standard td, .fc-theme-standard th {{
-        border: 1px solid #333 !important;
+    .fc-daygrid-day-frame {{
+        min-height: 120px !important;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -71,7 +73,7 @@ with st.sidebar:
             st.session_state.current_user = name
             st.rerun()
 
-# --- 3. 數據解析 (長班分段) ---
+# --- 3. 數據解析 ---
 calendar_events = []
 try:
     xl = pd.ExcelFile("CAL_Roster.xlsx")
@@ -86,7 +88,7 @@ try:
 
         end_dt = start_dt
         rtn_fno = ""
-        date_pattern = re.search(r'(\d{{4}}[-/]\d{{1,2}}[-/]\d{{1,2}})', memo)
+        date_pattern = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', memo)
         
         if date_pattern:
             try:
@@ -96,14 +98,12 @@ try:
             except: pass
 
         if end_dt > start_dt:
-            # (1) 去程：顯示 057/073
             calendar_events.append({
                 "title": f_no,
                 "start": start_dt.strftime('%Y-%m-%d'),
                 "end": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
                 "allDay": True
             })
-            # (2) 中間：純藍色塊 (不顯示字)
             if (end_dt - start_dt).days > 1:
                 calendar_events.append({
                     "title": " ", 
@@ -111,7 +111,6 @@ try:
                     "end": end_dt.strftime('%Y-%m-%d'),
                     "allDay": True
                 })
-            # (3) 回程：顯示 058/074
             if rtn_fno:
                 calendar_events.append({
                     "title": rtn_fno,
@@ -129,30 +128,31 @@ try:
 except Exception as e:
     st.sidebar.error(f"讀取錯誤：{e}")
 
-# --- 4. 渲染月曆 (內部注入 CSS 鎖死) ---
+# --- 4. 渲染月曆 ---
 st.title(f"💖 {st.session_state.current_user}")
 
 cal_custom_css = f"""
     .fc-event {{ 
         background-color: {user_color} !important; 
-        border-radius: 0px !important; 
+        border: none !important;
         margin: 0 !important;
     }}
     .fc-event-title {{ 
-        font-size: 1.8em !important; 
+        font-size: 2em !important; 
         font-weight: 900 !important; 
+        transform: scale(1.1);
     }}
-    .fc-daygrid-day-frame {{ min-height: 120px !important; }}
 """
 
+# 🚀 修正後的語法：把多餘的大括號去掉了
 calendar(
     events=calendar_events, 
     options={
         "initialDate": "2026-04-01", 
         "contentHeight": "auto", 
         "displayEventTime": False,
-        "headerToolbar": {{"left": "prev,next today", "center": "title", "right": ""}},
+        "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
     }, 
     custom_css=cal_custom_css,
-    key=st.session_state.current_user + "_final_boss_v3"
+    key=st.session_state.current_user + "_v_final_fixed"
 )
