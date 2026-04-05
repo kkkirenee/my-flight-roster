@@ -24,27 +24,27 @@ if "current_user" not in st.session_state or st.session_state.current_user not i
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (1.8em 大字) ---
+# --- 1. 視覺風格 ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     [data-testid="stSidebar"] {{ background-color: #151515; border-right: 2px solid {user_color}; }}
     
-    /* 🚀 長班主色塊樣式 */
+    /* 🚀 強制色塊填滿且無邊框 */
     div.fc-event {{
         background-color: {user_color} !important;
         border: none !important;
-        border-radius: 8px !important;
+        border-radius: 4px !important;
+        margin: 1px 0 !important; /* 讓色塊看起來更連貫 */
     }}
     
-    /* 🚀 讓回程文字(透明背景)也能顯示大字 */
     .fc-event-title {{
         font-size: 1.8em !important; 
         font-weight: 900 !important; 
         text-align: center !important; 
         color: white !important;
-        padding: 5px 0;
+        padding: 4px 0;
     }}
 
     .report-card {{
@@ -64,17 +64,11 @@ with st.sidebar:
             st.rerun()
     details_container = st.empty()
 
-# --- 3. 數據讀取與「回程自動補字」邏輯 ---
+# --- 3. 數據讀取與長班邏輯 ---
 calendar_events = []
-flight_db = pd.DataFrame()
 roster_lookup = {}
 
 try:
-    if os.path.exists("my_flights.csv"):
-        flight_db = pd.read_csv("my_flights.csv", encoding='utf-8-sig')
-        flight_db.columns = flight_db.columns.str.strip()
-        flight_db['班號'] = flight_db['班號'].astype(str).str.replace('CI', '').str.strip()
-    
     xl = pd.ExcelFile("CAL_Roster.xlsx")
     target_sheet = CREW_CONFIG[st.session_state.current_user]["sheet"]
     real_sheet = next((s for s in xl.sheet_names if target_sheet.lower() in s.lower().strip()), None)
@@ -90,23 +84,22 @@ try:
                 f_no = str(row['班號']).strip()
                 memo = str(row.get('備註', '')).strip()
                 
-                # 🚀 1. 建立主色塊 (長度依據備註日期)
+                # 🚀 判定長班終點
                 end_dt = start_dt
                 rtn_fno = ""
+                # 抓取備註中的日期格式 (如 4/30)
                 date_match = re.search(r'(\d+)/(\d+)', memo)
                 if date_match:
                     try:
                         m, d = int(date_match.group(1)), int(date_match.group(2))
+                        # 建立終點日期
                         end_dt = datetime(start_dt.year, m, d)
-                        # 抓取回程班號
-                        rtn_match = re.search(r'/\d+\s+(\d+)', memo)
+                        # 抓取日期後面的班號數字
+                        rtn_match = re.search(rf'{m}/{d}\s+(\d+)', memo)
                         if rtn_match: rtn_fno = rtn_match.group(1)
                     except: pass
 
-                # 存入查詢字典
-                roster_lookup[start_dt.strftime('%Y-%m-%d')] = {"fno": f_no, "memo": memo}
-                
-                # 加入主長班色塊 (從去程開始畫)
+                # 1. 加入主長班連貫色塊
                 calendar_events.append({
                     "title": f_no,
                     "start": start_dt.strftime('%Y-%m-%d'),
@@ -115,35 +108,28 @@ try:
                     "backgroundColor": user_color
                 })
 
-                # 🚀 2. 關鍵：如果這是一個長班，在「回程日」那天加蓋一個顯示回程班號的事件
+                # 2. 🚀 如果是長班，在終點日疊加一個回程班號 (透明背景)
                 if end_dt > start_dt and rtn_fno:
                     calendar_events.append({
                         "title": rtn_fno,
                         "start": end_dt.strftime('%Y-%m-%d'),
                         "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
                         "allDay": True,
-                        "backgroundColor": "rgba(0,0,0,0)", # 透明背景，不重複蓋色
+                        "backgroundColor": "transparent",
                         "borderColor": "transparent",
-                        "display": "list-item" # 確保文字疊加顯示
+                        "textColor": "white"
                     })
+
+                roster_lookup[start_dt.strftime('%Y-%m-%d')] = {"fno": f_no, "memo": memo}
             except: continue
 except Exception as e:
     st.sidebar.error(f"讀取錯誤：{str(e)}")
 
 # --- 4. 主月曆 ---
 st.title(f"💖 {st.session_state.current_user}'s Roster")
-state = calendar(
+calendar(
     events=calendar_events, 
-    options={"initialDate": today_str, "contentHeight": "auto", "displayEventTime": False, "dayMaxEvents": False}, 
+    options={"initialDate": today_str, "contentHeight": "auto", "displayEventTime": False}, 
     custom_css=".fc-event-title { font-size: 1.8em !important; font-weight: 900 !important; }",
     key=f"cal_{st.session_state.current_user}"
 )
-
-# --- 5. 詳情顯示 ---
-if state.get("eventClick"):
-    clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
-    info = roster_lookup.get(clicked_date, {})
-    if info:
-        main_f, memo = info.get("fno", ""), info.get("memo", "")
-        with details_container.container():
-            st.markdown(f'<div class="report-card"><h2 style="color:{user_color}">CI {main_f}</h2><p>備註：{memo}</p></div>', unsafe_allow_html=True)
