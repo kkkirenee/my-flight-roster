@@ -11,7 +11,7 @@ st.set_page_config(page_title="CAL SCHEDULE", layout="wide")
 CREW_CONFIG = {
     "Irene": {"color": "#F07699", "sheet": "Irene"},
     "Isabelle": {"color": "#A28CF0", "sheet": "Isabelle"},
-    "Elaine": {"color": "#76C9F0", "sheet": "Elaine"},
+    "Elaine": {"color": "#0B9F90", "sheet": "Elaine"},
     "Bigpiao": {"color": "#F0B476", "sheet": "Bigpiao"}
 }
 
@@ -20,51 +20,67 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (2.2em 大字 + 漂漂亮亮配色鎖死) ---
+# --- 1. 視覺風格 (大字月曆 + 精緻資訊 + 絕美按鈕) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    div.fc-event, div.fc-event-main, .fc-daygrid-event {{
+    /* 🚀 月曆維持霸氣大字 */
+    div.fc-event {{
         background-color: {user_color} !important;
-        background: {user_color} !important;
-        border: none !important;
-        border-radius: 0px !important; 
-        margin: 0 !important;
-        min-height: 3.5em !important; 
-        display: flex !important;
-        align-items: center !important;
-        cursor: pointer !important;
+        border: none !important; border-radius: 0px !important; 
+        min-height: 4.5em !important; display: flex !important; align-items: center !important;
     }}
-    
     .fc-event-title {{
-        font-size: 2.0em !important; 
-        font-weight: 900 !important; 
-        color: white !important;
-        text-align: center !important;
-        width: 100% !important;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        font-size: 2.2em !important; font-weight: 900 !important; 
+        color: white !important; text-align: center !important; width: 100% !important;
     }}
-
     .fc-daygrid-day-frame {{ min-height: 120px !important; }}
 
-    .flight-card {{
-        background: #1A1A1A; border-radius: 20px; padding: 25px;
-        border: 4px solid {user_color}; margin-top: 15px;
-        box-shadow: 0 0 20px {user_color}44;
+    /* 🚀 絕美名字按鈕設計 */
+    .stButton > button {{
+        width: 100%;
+        border-radius: 12px !important;
+        border: 1px solid #333 !important;
+        background-color: #1A1A1A !important;
+        color: #AAA !important;
+        transition: all 0.3s ease !important;
+        font-weight: 600 !important;
+        height: 3em !important;
+        margin-bottom: 5px !important;
     }}
+    .stButton > button:hover {{
+        border: 1px solid {user_color} !important;
+        color: {user_color} !important;
+        box-shadow: 0 0 10px {user_color}66 !important;
+        transform: translateY(-2px);
+    }}
+    /* 當前選中按鈕的加強視覺 */
+    /* 注意：Streamlit 原生按鈕狀態較難用純 CSS 抓取，但透過 hover 已經非常亮眼 */
+
+    /* 🚀 航班資訊卡片精緻化 (字體縮小一點) */
+    .flight-card {{
+        background: #1A1A1A; border-radius: 20px; padding: 20px;
+        border: 3px solid {user_color}; margin-top: 15px;
+        box-shadow: 0 0 15px {user_color}33;
+    }}
+    .card-title {{ color: {user_color}; font-size: 1.5rem !important; font-weight: 800; margin: 0; }}
+    .card-dest {{ font-size: 1.8rem !important; font-weight: 900; margin: 8px 0; }}
+    .card-info {{ font-size: 1.1rem !important; color: #BBB; margin-bottom: 5px; }}
     
     .time-box {{
         display: flex; justify-content: space-between; background: #262626;
-        padding: 15px; border-radius: 12px; margin: 10px 0; border: 1px solid #444;
+        padding: 12px; border-radius: 10px; margin: 8px 0; border: 1px solid #333;
     }}
+    .time-val {{ font-size: 1.4rem !important; font-weight: 800; color: white; margin: 0; }}
+    .time-label {{ font-size: 0.8rem; color: #888; margin: 0; }}
     </style>
     """, unsafe_allow_html=True)
 
 # --- 2. 側邊欄 ---
 with st.sidebar:
-    st.markdown(f"<h1 style='color:{user_color}; font-weight:900; text-align:center;'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color:{user_color}; font-weight:900; text-align:center; margin-bottom:20px;'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
     for name in CREW_CONFIG.keys():
         if st.button(name, key=f"btn_{name}"):
             st.session_state.current_user = name
@@ -98,7 +114,6 @@ try:
         rtn_fno = ""
         date_pattern = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', memo)
         rtn_match = re.search(r'回程\s*(\d+)', memo)
-        
         if rtn_match:
             rtn_fno = rtn_match.group(1)
             if not date_pattern: flight_list.append(rtn_fno)
@@ -119,26 +134,17 @@ try:
 except Exception as e:
     st.sidebar.error(f"讀取錯誤：{e}")
 
-# --- 4. 渲染月曆 (🚀 修正後的語法) ---
+# --- 4. 渲染月曆 ---
 st.title(f"💖 {st.session_state.current_user}")
-cal_custom_css = f"""
-    .fc-event, div.fc-event-main {{ background-color: {user_color} !important; border: none !important; }}
-    .fc-event-title {{ font-size: 2.2em !important; font-weight: 900 !important; }}
-"""
-
-# 🚀 這裡已經把多餘的大括號拔掉了！
+cal_custom_css = f".fc-event-title {{ font-size: 2.2em !important; font-weight: 900 !important; }}"
 state = calendar(
     events=calendar_events, 
-    options={
-        "initialDate": "2026-04-01", 
-        "displayEventTime": False, 
-        "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}
-    }, 
+    options={"initialDate": "2026-04-01", "displayEventTime": False, "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}}, 
     custom_css=cal_custom_css,
-    key=f"cal_final_stable_{st.session_state.current_user}"
+    key=f"cal_vfinal_lux_{st.session_state.current_user}"
 )
 
-# --- 5. 點擊顯示 (功能鎖死：落地、報到、起飛) ---
+# --- 5. 點擊顯示 (精緻化文字顯示) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = click_lookup.get(clicked_date)
@@ -147,7 +153,6 @@ if state.get("eventClick"):
             for fno in info["flights"]:
                 target_f = fno.upper().replace('CI', '').strip()
                 match = flight_db[flight_db['f_clean'] == target_f] if not flight_db.empty else pd.DataFrame()
-                
                 if not match.empty:
                     r = match.iloc[0]
                     def get_v(keys):
@@ -162,13 +167,13 @@ if state.get("eventClick"):
 
                     st.markdown(f"""
                         <div class="flight-card">
-                            <h2 style='color:{user_color}; margin:0;'>CI {target_f}</h2>
-                            <p style='font-size:2.3rem; font-weight:950; margin:15px 0;'>📍 {dest}</p>
-                            <p style='font-size:1.3rem; margin-bottom:10px;'>⏰ 報到時間: {report}</p>
+                            <p class="card-title">CI {target_f}</p>
+                            <p class="card-dest">📍 {dest}</p>
+                            <p class="card-info">⏰ 報到時間: {report}</p>
                             <div class="time-box">
-                                <div style="text-align:center;"><p style="margin:0; font-size:1rem; color:#AAA;">起飛 DEP</p><p style="margin:0; font-size:1.8rem; font-weight:800; color:white;">{dep_t}</p></div>
-                                <div style="align-self:center; color:#555; font-size:1.5rem;">✈️</div>
-                                <div style="text-align:center;"><p style="margin:0; font-size:1rem; color:#AAA;">落地 ARR</p><p style="margin:0; font-size:1.8rem; font-weight:800; color:white;">{arr_t}</p></div>
+                                <div style="text-align:center;"><p class="time-label">起飛 DEP</p><p class="time-val">{dep_t}</p></div>
+                                <div style="align-self:center; color:#555;">✈️</div>
+                                <div style="text-align:center;"><p class="time-label">落地 ARR</p><p class="time-val">{arr_t}</p></div>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
