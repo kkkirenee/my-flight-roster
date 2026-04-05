@@ -20,44 +20,20 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (2.2em 大字 + 顏色強力鎖定) ---
+# --- 1. 視覺風格 (配色鎖死 + 2.2em 大字) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
-    
-    /* 🚀 強制讓所有色塊都噴出正確的顏色 */
     div.fc-event, div.fc-event-main, .fc-daygrid-event {{
-        background-color: {user_color} !important;
-        background: {user_color} !important;
-        border: none !important;
-        border-radius: 0px !important; 
-        margin: 0 !important;
-        min-height: 4.5em !important; 
-        display: flex !important;
-        align-items: center !important;
-        cursor: pointer !important;
+        background-color: {user_color} !important; background: {user_color} !important;
+        border: none !important; border-radius: 0px !important; margin: 0 !important;
+        min-height: 4.5em !important; display: flex !important; align-items: center !important; cursor: pointer !important;
     }}
-    
-    .fc-event-title {{
-        font-size: 2.2em !important; 
-        font-weight: 900 !important; 
-        color: white !important;
-        text-align: center !important;
-        width: 100% !important;
-    }}
-
+    .fc-event-title {{ font-size: 2.2em !important; font-weight: 900 !important; color: white !important; text-align: center !important; width: 100% !important; }}
     .fc-daygrid-day-frame {{ min-height: 120px !important; }}
-
-    .flight-card {{
-        background: #1A1A1A; border-radius: 20px; padding: 25px;
-        border: 4px solid {user_color}; margin-top: 15px;
-    }}
-    
-    .time-box {{
-        display: flex; justify-content: space-between; background: #262626;
-        padding: 15px; border-radius: 12px; margin: 10px 0; border: 1px solid #444;
-    }}
+    .flight-card {{ background: #1A1A1A; border-radius: 20px; padding: 20px; border: 3px solid {user_color}; margin-bottom: 15px; }}
+    .time-box {{ display: flex; justify-content: space-between; background: #262626; padding: 12px; border-radius: 10px; margin: 8px 0; border: 1px solid #444; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -69,9 +45,9 @@ with st.sidebar:
             st.session_state.current_user = name
             st.rerun()
     st.divider()
-    info_placeholder = st.empty()
+    info_placeholder = st.sidebar.container() # 🚀 改為容器，方便噴發多個卡片
 
-# --- 3. 數據解析 (🚀 核心：建立回程班號的索引) ---
+# --- 3. 數據解析 (🚀 核心：解析雙班號) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 click_lookup = {} 
@@ -93,75 +69,74 @@ try:
         memo = str(row.get('備註', '')).strip()
         d_key = start_dt.strftime('%Y-%m-%d')
 
-        # 搜尋備註裡有沒有回程班號
-        end_dt = start_dt
+        # 🚀 建立班號清單
+        flight_list = [f_no]
         rtn_fno = ""
-        date_pattern = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', memo)
-        if date_pattern:
-            try:
-                end_dt = pd.to_datetime(date_pattern.group(1))
-                rtn_match = re.search(r'回程\s*(\d+)', memo)
-                if rtn_match: rtn_fno = rtn_match.group(1)
-            except: pass
         
-        # 針對當天來回班(如 112/113) 也要抓出回程
-        if not rtn_fno:
-            single_day_match = re.search(r'回程\s*(\d+)', memo)
-            if single_day_match: rtn_fno = single_day_match.group(1)
+        # 抓取回程班號 (不管長班還是單日)
+        rtn_match = re.search(r'回程\s*(\d+)', memo)
+        if rtn_match:
+            rtn_fno = rtn_match.group(1)
+            # 如果是單日來回，當天就要顯示兩份資訊
+            rtn_date_pattern = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', memo)
+            if not rtn_date_pattern: # 代表是當天來回
+                flight_list.append(rtn_fno)
 
-        # 存入去程資訊
-        click_lookup[d_key] = {"fno": f_no, "memo": memo}
+        # 存入對照表
+        click_lookup[d_key] = {"flights": flight_list, "memo": memo}
         calendar_events.append({"title": f_no, "start": d_key, "end": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True})
 
-        if end_dt > start_dt:
-            # 中間純色塊
-            if (end_dt - start_dt).days > 1:
-                calendar_events.append({"title": " ", "start": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "end": end_dt.strftime('%Y-%m-%d'), "allDay": True})
-            # 🚀 回程資訊：存入索引以便點擊時去 CSV 撈
-            if rtn_fno:
-                r_key = end_dt.strftime('%Y-%m-%d')
-                click_lookup[r_key] = {"fno": rtn_fno, "memo": f"回程自 {start_dt.strftime('%m/%d')} CI{f_no}"}
-                calendar_events.append({"title": rtn_fno, "start": r_key, "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True})
+        # 長班跨日邏輯
+        if rtn_date_pattern:
+            try:
+                end_dt = pd.to_datetime(rtn_date_pattern.group(1))
+                if end_dt > start_dt:
+                    if (end_dt - start_dt).days > 1:
+                        calendar_events.append({"title": " ", "start": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "end": end_dt.strftime('%Y-%m-%d'), "allDay": True})
+                    r_key = end_dt.strftime('%Y-%m-%d')
+                    click_lookup[r_key] = {"flights": [rtn_fno], "memo": f"回程自 {start_dt.strftime('%m/%d')} CI{f_no}"}
+                    calendar_events.append({"title": rtn_fno, "start": r_key, "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True})
+            except: pass
 
 except Exception as e:
-    st.sidebar.error(f"讀取錯誤：{e}")
+    st.sidebar.error(f"Excel 讀取失敗：{e}")
 
 # --- 4. 渲染月曆 ---
 st.title(f"💖 {st.session_state.current_user}")
-cal_custom_css = f".fc-event-title {{ font-size: 2.2em !important; font-weight: 900 !important; }}"
 state = calendar(
     events=calendar_events, 
     options={"initialDate": "2026-04-01", "contentHeight": "auto", "displayEventTime": False, "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}}, 
-    custom_css=cal_custom_css,
-    key=f"cal_final_{st.session_state.current_user}"
+    custom_css=f".fc-event-title {{ font-size: 2.2em !important; font-weight: 900 !important; }}",
+    key=f"cal_v110_{st.session_state.current_user}"
 )
 
-# --- 5. 🚀 點擊顯示 (去 CSV 撈去/回程資訊) ---
+# --- 5. 🚀 點擊事件 (一次顯示去/回兩份 CSV 資料) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = click_lookup.get(clicked_date)
+    
     if info:
-        target_f = str(info['fno']).upper().replace('CI', '').strip()
-        match = flight_db[flight_db['f_clean'] == target_f] if not flight_db.empty else pd.DataFrame()
-        
-        with info_placeholder.container():
-            if not match.empty:
-                r = match.iloc[0]
-                st.markdown(f"""
-                    <div class="flight-card">
-                        <h2 style='color:{user_color}; margin:0;'>CI {target_f}</h2>
-                        <p style='font-size:2.3rem; font-weight:950; margin:15px 0;'>📍 {r['目的地']}</p>
-                        <p style='font-size:1.3rem; margin-bottom:10px;'>⏰ 報到時間: {r.get('報到時間','--:--')}</p>
-                        <div class="time-box">
-                            <div style="text-align:center;"><p style="margin:0; font-size:1rem; color:#AAA;">起飛 DEP</p><p style="margin:0; font-size:1.8rem; font-weight:800; color:white;">{r.get('起飛時間','--:--')}</p></div>
-                            <div style="align-self:center; color:#555; font-size:1.5rem;">✈️</div>
-                            <div style="text-align:center;"><p style="margin:0; font-size:1rem; color:#AAA;">降落 ARR</p><p style="margin:0; font-size:1.8rem; font-weight:800; color:white;">{r.get('降落時間','--:--')}</p></div>
+        with info_placeholder:
+            for fno in info["flights"]:
+                target_f = fno.upper().replace('CI', '').strip()
+                match = flight_db[flight_db['f_clean'] == target_f] if not flight_db.empty else pd.DataFrame()
+                
+                if not match.empty:
+                    r = match.iloc[0]
+                    st.markdown(f"""
+                        <div class="flight-card">
+                            <h2 style='color:{user_color}; margin:0;'>CI {target_f}</h2>
+                            <p style='font-size:2rem; font-weight:950; margin:10px 0;'>📍 {r['目的地']}</p>
+                            <p style='font-size:1.1rem; margin-bottom:5px;'>⏰ 報到時間: {r.get('報到時間','--:--')}</p>
+                            <div class="time-box">
+                                <div style="text-align:center;"><p style="margin:0; font-size:0.8rem; color:#AAA;">起飛 DEP</p><p style="margin:0; font-size:1.3rem; font-weight:800;">{r.get('起飛時間','--:--')}</p></div>
+                                <div style="align-self:center; color:#555;">✈️</div>
+                                <div style="text-align:center;"><p style="margin:0; font-size:0.8rem; color:#AAA;">降落 ARR</p><p style="margin:0; font-size:1.3rem; font-weight:800;">{r.get('降落時間','--:--')}</p></div>
+                            </div>
                         </div>
-                        <hr style='border: 0.5px solid #444;'>
-                        <p style='color:#AAA; font-size:1rem;'>資訊：{info['memo']}</p>
-                    </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"<div class='flight-card'><h2>CI {target_f}</h2><p>⚠️ CSV 找不到此班號資料</p></div>", unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<div class='flight-card'><h2>CI {target_f}</h2><p>CSV 找不到資訊</p></div>", unsafe_allow_html=True)
+            st.caption(f"💡 資訊：{info['memo']}")
 else:
-    info_placeholder.info("✨ 點擊上方班號查看詳細資訊")
+    info_placeholder.info("✨ 點擊班號查看詳細資訊")
