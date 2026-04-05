@@ -11,7 +11,7 @@ st.set_page_config(page_title="CAL SCHEDULE", layout="wide")
 CREW_CONFIG = {
     "Irene": {"color": "#F07699", "sheet": "Irene"},
     "Isabelle": {"color": "#A28CF0", "sheet": "Isabelle"},
-    "Elaine": {"color": "#76C9F0", "sheet": "Elaine"},
+    "Elaine": {"color": "#32784B", "sheet": "Elaine"},
     "Bigpiao": {"color": "#F0B476", "sheet": "Bigpiao"}
 }
 
