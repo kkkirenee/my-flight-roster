@@ -26,28 +26,53 @@ st.markdown(f"""
     .stApp {{ background-color: #0E0E0E; color: white; }}
     .block-container {{ padding-top: 0.5rem !important; padding-bottom: 0rem !important; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
-/* 🚀 1. 儀表板組合：讓四個按鈕完全緊貼 */
+/* 🚀 1. 儀表板組合：強制四個按鈕在手機螢幕「橫向一排」且「完全緊貼」 */
     div[data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 0px !important; /* 🚀 縫隙歸零，完全緊貼 */
+        gap: 0px !important; /* 🚀 縫隙徹底歸零 */
         justify-content: center !important;
         align-items: center !important;
-        background: #1A1A1A; /* 底色統一 */
-        border-radius: 12px;
-        padding: 2px !important;
-        border: 1px solid #333;
+        padding: 0px !important;
+        margin: 0px !important;
     }}
 
     [data-testid="column"] {{
+        width: 25% !important; /* 🚀 每個名字精準佔 1/4 */
         flex: 1 1 25% !important;
         min-width: 0 !important;
-        padding: 0 !important;
+        padding: 0px !important; /* 🚀 拔掉欄位間的空氣 */
+        margin: 0px !important;
     }}
 
-    /* 🚀 2. 炫炮霓虹按鈕設定 */
+    /* 🚀 2. 炫炮霓虹按鈕：寬度填滿、邊框細緻 */
     .stButton > button {{
+        width: 100% !important; 
+        height: 40px !important;
+        font-size: 0.8rem !important; /* 🚀 字體微縮，確保名字不換行 */
+        font-weight: 900 !important;
+        color: #888 !important; /* 未選中時淡淡的 */
+        background: #1A1A1A !important;
+        border: 1px solid #333 !important; /* 🚀 加入極細邊框做出分割感 */
+        border-radius: 0px !important; /* 🚀 預設不圓角，才能緊貼 */
+        padding: 0px !important;
+        transition: all 0.3s ease !important;
+    }}
+
+    /* 🚀 3. 特別處理首尾圓角，讓它看起來像一個完整的長條導覽列 */
+    [data-testid="column"]:first-child button {{ border-top-left-radius: 12px !important; border-bottom-left-radius: 12px !important; }}
+    [data-testid="column"]:last-child button {{ border-top-right-radius: 12px !important; border-bottom-right-radius: 12px !important; }}
+
+    /* 🚀 4. 選中狀態：妳要的炫炮發光效果 */
+    .stButton > button:focus, .stButton > button:active, .stButton > button:hover {{
+        background: {user_color} !important;
+        color: white !important;
+        box-shadow: 0 0 15px {user_color} !important; /* 🚀 霓虹發光 */
+        border: 1px solid white !important;
+        z-index: 10;
+        transform: scale(1.02); /* 🚀 點擊時微浮凸感 */
+    }}
         width: 100% !important; 
         height: 42px !important;
         font-size: 0.85rem !important;
