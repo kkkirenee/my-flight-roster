@@ -15,20 +15,19 @@ CREW_CONFIG = {
     "Bigpiao": {"color": "#F0B476", "sheet": "Bigpiao"}
 }
 
-# 🚀 這裡可以改預設進去是誰！
 if "current_user" not in st.session_state:
     st.session_state.current_user = "Irene" 
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (🚀 強制橫向按鈕補丁) ---
+# --- 1. 視覺風格 (🚀 顏色鎖死補丁) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     .block-container {{ padding-top: 0.5rem !important; padding-bottom: 0rem !important; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 強制讓 columns 在手機上也不要換行，保持橫向 */
+    /* 🚀 強制讓按鈕在手機上橫向並排 */
     [data-testid="column"] {{
         width: calc(25% - 5px) !important;
         flex: 1 1 calc(25% - 5px) !important;
@@ -43,35 +42,48 @@ st.markdown(f"""
 
     .stButton > button {{
         width: 100% !important; height: 42px !important;
-        font-size: 0.85rem !important; /* 縮小一點點字，確保橫排塞得下 */
+        font-size: 0.85rem !important;
         font-weight: 800 !important;
-        padding: 0 !important;
         color: white !important; background-color: #1A1A1A !important;
         border-radius: 10px !important; border: 2px solid transparent !important; 
         background: linear-gradient(#1A1A1A, #1A1A1A) padding-box,
                     linear-gradient(135deg, {user_color}88, #0E0E0E) border-box !important;
     }}
 
-    /* 📱 手機版微調 */
+    /* 🚀 月曆顏色強制鎖死 (關鍵！) */
+    .fc-event, .fc-event-main, .fc-daygrid-event {{
+        background-color: {user_color} !important;
+        background: {user_color} !important;
+        border: none !important;
+    }}
+    
+    .fc-event-title {{ 
+        font-size: 1.6em !important; 
+        font-weight: 900 !important; 
+        color: white !important; 
+        text-align: center !important; 
+    }}
+
+    .fc-daygrid-day-frame {{ min-height: 80px !important; }}
+    .fc-day-other {{ visibility: hidden !important; }}
+
     @media (max-width: 768px) {{
         .fc-event-title {{ font-size: 1.1em !important; }}
         .fc-daygrid-day-frame {{ min-height: 60px !important; }}
         [data-testid="stSidebar"] {{ display: none; }}
     }}
 
-    /* 月曆與卡片基礎樣式 */
-    .fc-daygrid-day-frame {{ min-height: 80px !important; }}
-    .fc-day-other {{ visibility: hidden !important; }}
-    div.fc-event {{ background-color: {user_color} !important; border: none !important; }}
-    .fc-event-title {{ font-size: 1.6em !important; font-weight: 900 !important; text-align: center !important; }}
-    .fc .fc-button-primary {{ background-color: transparent !important; border: 2px solid {user_color} !important; color: {user_color} !important; }}
+    .fc .fc-button-primary {{
+        background-color: transparent !important;
+        border: 2px solid {user_color} !important;
+        color: {user_color} !important;
+    }}
     </style>
     """, unsafe_allow_html=True)
 
 # --- 2. 頂部導覽區 ---
 st.markdown(f"<h1 style='color:{user_color}; font-weight:900; text-align:center; margin-bottom:5px; font-size:1.3rem;'>✈️ CAL SCHEDULE</h1>", unsafe_allow_html=True)
 
-# 🚀 這裡就是強制橫排的四個按鈕
 cols = st.columns(4)
 names = list(CREW_CONFIG.keys())
 for i, name in enumerate(names):
@@ -79,7 +91,7 @@ for i, name in enumerate(names):
         st.session_state.current_user = name
         st.rerun()
 
-st.markdown(f"<h2 style='margin: 5px 0; text-align:center; font-size:1.2rem;'>💖 {st.session_state.current_user}</h2>", unsafe_allow_html=True)
+st.markdown(f"<h2 style='margin: 5px 0; text-align:center; font-size:1.2rem; color:{user_color};'>💖 {st.session_state.current_user}</h2>", unsafe_allow_html=True)
 info_placeholder = st.container()
 
 # --- 3. 數據解析 (維持邏輯) ---
@@ -122,7 +134,14 @@ try:
 except Exception as e:
     st.error(f"數據讀取失敗：{e}")
 
-# --- 4. 渲染月曆 ---
+# --- 4. 渲染月曆 (🚀 加強 custom_css 注入) ---
+# 確保月曆內部的 Events 也被強制染色
+st_cal_custom_css = f"""
+    .fc-event {{ background-color: {user_color} !important; border: none !important; }}
+    .fc-event-main {{ background-color: {user_color} !important; }}
+    .fc-event-title {{ font-weight: 900 !important; color: white !important; }}
+"""
+
 state = calendar(
     events=calendar_events, 
     options={
@@ -133,11 +152,11 @@ state = calendar(
         "showNonCurrentDates": False,
         "height": "auto"
     }, 
-    custom_css=f".fc-event-title {{ font-weight: 900 !important; }}",
-    key=f"cal_vfinal_mobile_row_{st.session_state.current_user}"
+    custom_css=st_cal_custom_css,
+    key=f"cal_v_final_color_fix_{st.session_state.current_user}"
 )
 
-# --- 5. 點擊顯示 (卡片維持精緻版) ---
+# --- 5. 點擊顯示 (卡片) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = click_lookup.get(clicked_date)
