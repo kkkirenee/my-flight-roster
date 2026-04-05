@@ -11,7 +11,7 @@ st.set_page_config(page_title="CAL SCHEDULE", layout="wide")
 CREW_CONFIG = {
     "Irene": {"color": "#F07699", "sheet": "Irene"},
     "Isabelle": {"color": "#A28CF0", "sheet": "Isabelle"},
-    "Elaine": {"color": "#76C9F0", "sheet": "Elaine"},
+    "Elaine": {"color": "#327856", "sheet": "Elaine"},
     "Bigpiao": {"color": "#F0B476", "sheet": "Bigpiao"}
 }
 
@@ -50,7 +50,7 @@ st.markdown(f"""
     .fc-daygrid-day-frame {{ min-height: 120px !important; }}
 
     .flight-card {{
-        background: #1A1A1A; border-radius: 20px; padding: 25px;
+        background: #1A1A1A; border-radius: 20px; padding: 20px;
         border: 4px solid {user_color}; margin-top: 15px;
         box-shadow: 0 0 20px {user_color}44;
     }}
@@ -64,7 +64,7 @@ st.markdown(f"""
 
 # --- 2. 側邊欄 ---
 with st.sidebar:
-    st.markdown(f"<h1 style='color:{user_color}; font-weight:900; text-align:center;'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color:{user_color}; font-weight:1000; text-align:center;'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
     for name in CREW_CONFIG.keys():
         if st.button(name, key=f"btn_{name}"):
             st.session_state.current_user = name
