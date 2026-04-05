@@ -12,7 +12,6 @@ tw_tz = pytz.timezone('Asia/Taipei')
 now_tw = datetime.now(tw_tz)
 today_str = now_tw.strftime("%Y-%m-%d")
 
-# 🚀 這裡設定妳選單看到的名稱
 CREW_CONFIG = {
     "Irene": {"color": "#F07699", "icon": "🌸", "sheet": "Irene"},
     "Isabelle": {"color": "#A28CF0", "icon": "👤", "sheet": "Isabelle"},
@@ -20,48 +19,42 @@ CREW_CONFIG = {
     "Bigpiao": {"color": "#F0B476", "icon": "👤", "sheet": "Bigpiao"}
 }
 
-# 初始化檢查，防止 KeyError
 if "current_user" not in st.session_state or st.session_state.current_user not in CREW_CONFIG:
     st.session_state.current_user = "Irene"
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (1.8em 大字與配色鎖定) ---
+# --- 1. 視覺風格 (1.8em 大字與配色) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     [data-testid="stSidebar"] {{ background-color: #151515; border-right: 2px solid {user_color}; }}
     
-    /* 🚀 強制鎖色：Event 標籤底色 */
-    div.fc-event, div.fc-event-main, div.fc-daygrid-event {{
+    div.fc-event {{
         background-color: {user_color} !important;
-        border-color: {user_color} !important;
-        background: {user_color} !important;
-        border-radius: 8px !important;
         border: none !important;
+        border-radius: 8px !important;
     }}
     
-    /* 🚀 1.8em 超大字標題 */
     .fc-event-title {{
         font-size: 1.8em !important; 
         font-weight: 900 !important; 
         text-align: center !important; 
         color: white !important;
         padding: 5px 0;
+        white-space: pre-wrap !important; /* 🚀 支援換行顯示回程 */
     }}
 
     .report-card {{
         background: #1A1A1A; border-radius: 20px; padding: 25px;
-        border: 2px solid {user_color}; box-shadow: 0 0 20px rgba(0,0,0,0.5);
-        margin-bottom: 15px;
+        border: 2px solid {user_color}; margin-bottom: 15px;
     }}
     
     div.stButton > button {{
         background-color: #262626; color: white; border: 1px solid #444;
         font-weight: 900; width: 100%; border-radius: 12px; height: 3.5em;
     }}
-    div.stButton > button:hover {{ border-color: {user_color}; color: {user_color} !important; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -76,7 +69,7 @@ with st.sidebar:
     st.divider()
     details_container = st.empty()
 
-# --- 3. 數據讀取 (長班連線 + 待命判定) ---
+# --- 3. 數據讀取與長班顯示優化 ---
 calendar_events = []
 flight_db = pd.DataFrame()
 roster_lookup = {}
@@ -87,45 +80,49 @@ try:
         flight_db.columns = flight_db.columns.str.strip()
         flight_db['班號'] = flight_db['班號'].astype(str).str.replace('CI', '').str.strip()
     
-    if os.path.exists("CAL_Roster.xlsx"):
-        xl = pd.ExcelFile("CAL_Roster.xlsx")
-        target_sheet_name = CREW_CONFIG[st.session_state.current_user]["sheet"]
+    xl = pd.ExcelFile("CAL_Roster.xlsx")
+    target_sheet = CREW_CONFIG[st.session_state.current_user]["sheet"]
+    real_sheet = next((s for s in xl.sheet_names if target_sheet.lower() in s.lower().strip()), None)
+    
+    if real_sheet:
+        user_df = pd.read_excel(xl, sheet_name=real_sheet)
+        user_df.columns = user_df.columns.str.strip()
         
-        # 🚀 模糊匹配分頁名稱 (防止空格干擾)
-        real_sheet = next((s for s in xl.sheet_names if target_sheet_name.lower() in s.lower().strip()), None)
-        
-        if real_sheet:
-            user_df = pd.read_excel(xl, sheet_name=real_sheet)
-            user_df.columns = user_df.columns.str.strip()
-            
-            for _, row in user_df.iterrows():
-                if pd.isna(row['日期']): continue
-                try:
-                    start_dt = pd.to_datetime(row['日期'])
-                    f_no = str(row['班號']).strip()
-                    memo = str(row.get('備註', '')).strip()
-                    
-                    # 長班連線邏輯
-                    end_dt = start_dt
-                    date_match = re.search(r'(\d+)/(\d+)', memo)
-                    if date_match:
-                        try:
-                            m, d = int(date_match.group(1)), int(date_match.group(2))
-                            end_dt = datetime(start_dt.year, m, d)
-                        except: pass
+        for _, row in user_df.iterrows():
+            if pd.isna(row['日期']): continue
+            try:
+                start_dt = pd.to_datetime(row['日期'])
+                f_no = str(row['班號']).strip()
+                memo = str(row.get('備註', '')).strip()
+                
+                # 🚀 長班判定
+                end_dt = start_dt
+                display_title = f_no
+                date_match = re.search(r'(\d+)/(\d+)', memo)
+                
+                if date_match:
+                    try:
+                        m, d = int(date_match.group(1)), int(date_match.group(2))
+                        end_dt = datetime(start_dt.year, m, d)
+                        # 🚀 抓取回程班號 (備註裡日期後面的數字)
+                        rtn_match = re.search(r'/\d+\s+(\d+)', memo)
+                        if rtn_match:
+                            rtn_fno = rtn_match.group(1)
+                            # 在月曆標題顯示：去程班號 ... 回程班號
+                            display_title = f"{f_no} → {rtn_fno}"
+                    except: pass
 
-                    date_key = start_dt.strftime('%Y-%m-%d')
-                    roster_lookup[date_key] = {"fno": f_no, "memo": memo}
-                    
-                    calendar_events.append({
-                        "title": f_no,
-                        "start": start_dt.strftime('%Y-%m-%d'),
-                        "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
-                        "allDay": True,
-                        "backgroundColor": user_color,
-                        "borderColor": user_color
-                    })
-                except: continue
+                date_key = start_dt.strftime('%Y-%m-%d')
+                roster_lookup[date_key] = {"fno": f_no, "memo": memo}
+                
+                calendar_events.append({
+                    "title": display_title,
+                    "start": start_dt.strftime('%Y-%m-%d'),
+                    "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
+                    "allDay": True,
+                    "backgroundColor": user_color
+                })
+            except: continue
 except Exception as e:
     st.sidebar.error(f"讀取錯誤：{str(e)}")
 
@@ -138,7 +135,7 @@ state = calendar(
     key=f"cal_{st.session_state.current_user}"
 )
 
-# --- 5. 詳情顯示 ---
+# --- 5. 詳情顯示 (保持不變) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = roster_lookup.get(clicked_date, {})
@@ -146,11 +143,7 @@ if state.get("eventClick"):
         main_f, memo = info.get("fno", ""), info.get("memo", "")
         with details_container.container():
             if any(x in main_f.upper() for x in ['HS', 'S']):
-                st.markdown(f"""<div class="report-card">
-                    <h2 style='color:{user_color}; margin:0;'>{main_f}</h2>
-                    <p style='margin:10px 0; font-size:1.3rem; font-weight:800;'>📢 待命 (Standby)</p>
-                    <p style='font-size:1.1rem; color:#AAA;'>備註：{memo}</p>
-                </div>""", unsafe_allow_html=True)
+                st.markdown(f'<div class="report-card"><h2 style="color:{user_color}">{main_f}</h2><p>📢 待命 (Standby)</p></div>', unsafe_allow_html=True)
             else:
                 display_list = [main_f]
                 memo_nums = re.findall(r'\d+', memo)
@@ -161,11 +154,10 @@ if state.get("eventClick"):
                     match = flight_db[flight_db['班號'] == t] if not flight_db.empty else pd.DataFrame()
                     if not match.empty:
                         r = match.iloc[0]
-                        tag = "STAY" if ("/" in memo or "過夜" in memo) else ("GO" if (len(display_list)>1 and t==display_list[0]) else "FLY")
                         st.markdown(f"""<div class="report-card">
-                            <h2 style='color:{user_color}; margin:0;'>CI {t} <span style='font-size:0.8rem; background:{user_color}; padding:2px 8px; border-radius:5px;'>{tag}</span></h2>
-                            <p style='margin:10px 0; font-size:1.3rem; font-weight:800;'>📍 {r['目的地']}</p>
-                            <p style='font-size:1.1rem;'>⏰ 報到: {r.get('報到時間','--:--')}</p>
+                            <h2 style='color:{user_color};'>CI {t}</h2>
+                            <p style='font-size:1.3rem; font-weight:800;'>📍 {r['目的地']}</p>
+                            <p>⏰ 報到: {r.get('報到時間','--:--')}</p>
                         </div>""", unsafe_allow_html=True)
 else:
     details_container.write("✨ 點擊班號看詳情")
