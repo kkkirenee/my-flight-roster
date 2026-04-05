@@ -12,7 +12,7 @@ today_str = now_tw.strftime("%Y-%m-%d")
 if "current_user" not in st.session_state:
     st.session_state.current_user = "Irene"
 
-# --- 1. 配置 ---
+# --- 1. 成員與顏色配置 ---
 st.set_page_config(page_title="CAL Crew Hub", page_icon="✈️", layout="wide")
 
 CREW_CONFIG = {
@@ -24,36 +24,50 @@ CREW_CONFIG = {
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# 🎨 核心：CSS 暴力覆蓋藍色
+# 🎨 暴力 CSS：全面攔截預設藍色，強制注入粉紅與大字
 st.markdown(f"""
     <style>
+    /* 整體背景 */
     .stApp {{ background-color: #0E0E0E; color: white; }}
     
-    /* 🚀 強制殺掉所有藍色背景，換成成員專屬色 */
-    .fc-v-event, .fc-daygrid-event, .fc-event, .fc-event-main {{
+    /* 🚀 暴力攔截所有月曆 Event 的顏色 (標籤、背景、邊框全部鎖死) */
+    .fc-daygrid-event, .fc-v-event, .fc-event, .fc-event-main, .fc-event-title-container {{
         background-color: {user_color} !important;
         border-color: {user_color} !important;
         background: {user_color} !important;
-    }}
-    
-    /* 🚀 班號文字：超級大字 + 粗體 */
-    .fc-event-title, .fc-event-main-frame {{
-        font-size: 1.8rem !important; 
-        font-weight: 800 !important;
-        color: white !important;
-        text-align: center !important;
+        box-shadow: none !important;
     }}
 
-    /* 調整左邊按鈕大小 */
+    /* 🚀 班號文字：超級粗大 2.0rem，置中對齊 */
+    .fc-event-title, .fc-event-main {{
+        font-size: 2.0rem !important; 
+        font-weight: 900 !important;
+        color: white !important;
+        text-align: center !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 100% !important;
+    }}
+
+    /* 調整左邊姓名按鈕：回歸正常大小 */
     div.stButton > button {{
         font-size: 1rem !important;
+        font-weight: 700 !important;
         height: 2.8em !important;
         border-radius: 10px;
+        border: 1px solid #444;
     }}
-    
+    div.stButton > button:hover {{
+        border-color: {user_color};
+        color: {user_color} !important;
+    }}
+
+    /* 詳情卡片加強 */
     .report-card {{ 
         background: #1F1F1F; border-radius: 15px; padding: 20px; 
-        border: 2px solid {user_color}; 
+        border: 3px solid {user_color}; 
+        box-shadow: 0 0 15px {user_color}33;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -61,50 +75,59 @@ st.markdown(f"""
 # --- 2. 數據讀取 ---
 calendar_events = []
 try:
+    # 航班詳情
     flight_db = pd.read_csv('my_flights.csv', encoding='utf-8-sig')
+    flight_db.columns = flight_db.columns.str.strip()
     flight_db['班號'] = flight_db['班號'].astype(str).str.replace('CI', '').str.strip()
     
+    # 讀取 Excel (分頁連動)
     user_df = pd.read_excel('CAL_Roster.xlsx', sheet_name=st.session_state.current_user)
+    user_df.columns = user_df.columns.str.strip()
     
     for _, row in user_df.iterrows():
         raw_date = row['日期']
-        clean_date = raw_date.strftime('%Y-%m-%d') if isinstance(raw_date, datetime) else str(raw_date).split()[0]
+        if isinstance(raw_date, datetime):
+            clean_date = raw_date.strftime('%Y-%m-%d')
+        else:
+            clean_date = str(raw_date).split()[0]
         
-        # 💡 在 event 裡面也強制帶入顏色參數
+        # 💡 在資料端也強制寫入顏色屬性，雙重保險
         calendar_events.append({
             "title": str(row['班號']),
             "start": clean_date,
             "end": clean_date,
             "allDay": True,
             "backgroundColor": user_color,
-            "borderColor": user_color
+            "borderColor": user_color,
+            "textColor": "white"
         })
 except Exception as e:
-    st.sidebar.warning(f"尚未找到 {st.session_state.current_user} 分頁")
+    st.sidebar.warning(f"尚未在 Excel 找到 {st.session_state.current_user} 的分頁")
 
-# --- 3. 側邊欄 ---
+# --- 3. 側邊欄導航 ---
 with st.sidebar:
-    st.markdown("### ✈️ Crew Menu")
+    st.markdown(f"<h3 style='text-align:center;'>✈️ Crew Hub</h3>", unsafe_allow_html=True)
     for name, config in CREW_CONFIG.items():
         if st.button(f"{config['icon']} {name}", key=f"btn_{name}"):
             st.session_state.current_user = name
             st.rerun()
     st.divider()
+    st.subheader("📋 Flight Details")
     details_placeholder = st.empty()
 
-# --- 4. 月曆 ---
+# --- 4. 主頁面月曆 ---
 st.title(f"💖 {st.session_state.current_user}")
 
-# 🚀 這裡增加一個自定義 CSS 的設定
+# 設置月曆選項
 calendar_options = {
     "initialDate": today_str,
     "contentHeight": "auto",
-    "eventTextColor": "white",
+    "headerToolbar": {"left": "prev,next", "center": "title", "right": "dayGridMonth"},
 }
 
 state = calendar(events=calendar_events, options=calendar_options, key=f"cal_{st.session_state.current_user}")
 
-# --- 5. 詳情 ---
+# --- 5. 詳情連動 ---
 overnight_flights = ["130", "731", "150", "761", "721", "771"]
 if state.get("eventClick"):
     target = state["eventClick"]["event"]["title"].strip()
@@ -119,8 +142,8 @@ if state.get("eventClick"):
                 r = match.iloc[0]
                 st.markdown(f"""
                     <div class="report-card">
-                        <h2 style='color:{user_color}; margin:0;'>CI {t}</h2>
+                        <h2 style='color:{user_color}; margin:0; font-size:2rem;'>CI {t}</h2>
                         <p style='font-size:1.4rem; font-weight:700;'>📍 {r['目的地']}</p>
-                        <p>⏰ 報到: {r.get('報到時間','--:--')}</p>
+                        <p style='font-size:1.1rem;'>⏰ 報到: <span style='color:{user_color}; font-weight:800;'>{r.get('報到時間','--:--')}</span></p>
                     </div>
                 """, unsafe_allow_html=True)
