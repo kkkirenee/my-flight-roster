@@ -11,7 +11,7 @@ st.set_page_config(page_title="CAL SCHEDULE", layout="wide")
 CREW_CONFIG = {
     "Irene": {"color": "#F07699", "sheet": "Irene"},
     "Isabelle": {"color": "#A28CF0", "sheet": "Isabelle"},
-    "Elaine": {"color": "#2D5A27", "sheet": "Elaine"}, # 🚀 換成極具質感的深森林綠
+    "Elaine": {"color": "#76C9F0", "sheet": "Elaine"},
     "Bigpiao": {"color": "#F0B476", "sheet": "Bigpiao"}
 }
 
@@ -26,7 +26,7 @@ st.markdown(f"""
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 月曆字體微調 1.8em */
+    /* 🚀 月曆字體微調：從 2.2em 降至 1.8em */
     div.fc-event {{
         background-color: {user_color} !important;
         border: none !important; border-radius: 0px !important; 
@@ -39,7 +39,7 @@ st.markdown(f"""
     }}
     .fc-daygrid-day-frame {{ min-height: 120px !important; }}
 
-    /* 🚀 醒目按鈕：更大、更厚實 */
+    /* 🚀 醒目按鈕升級：更大、更厚實 */
     .stButton > button {{
         width: 100%;
         border-radius: 15px !important;
@@ -48,8 +48,8 @@ st.markdown(f"""
         color: #CCC !important;
         transition: all 0.3s ease !important;
         font-weight: 800 !important;
-        font-size: 1.2rem !important;
-        height: 3.8em !important;
+        font-size: 1.2rem !important; /* 按鈕字體加大 */
+        height: 3.8em !important;     /* 按鈕高度加高 */
         margin-bottom: 10px !important;
     }}
     .stButton > button:hover {{
@@ -82,7 +82,7 @@ with st.sidebar:
     st.divider()
     info_placeholder = st.container()
 
-# --- 3. 數據解析 ---
+# --- 3. 數據解析 (完全維持) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 click_lookup = {} 
@@ -134,10 +134,10 @@ state = calendar(
     events=calendar_events, 
     options={"initialDate": "2026-04-01", "displayEventTime": False, "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}}, 
     custom_css=f".fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}",
-    key=f"cal_final_stable_{st.session_state.current_user}"
+    key=f"cal_vfinal_fix_{st.session_state.current_user}"
 )
 
-# --- 5. 點擊顯示 (起降資訊鎖死) ---
+# --- 5. 點擊顯示 (落地時間、起降資訊完美對齊) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = click_lookup.get(clicked_date)
