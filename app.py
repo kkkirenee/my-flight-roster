@@ -11,7 +11,7 @@ st.set_page_config(page_title="CAL SCHEDULE", layout="wide")
 CREW_CONFIG = {
     "Irene": {"color": "#F07699", "sheet": "Irene"},
     "Isabelle": {"color": "#A28CF0", "sheet": "Isabelle"},
-    "Elaine": {"color": "#2D5A27", "sheet": "Elaine"}, # 🚀 換成極具質感的深森林綠
+    "Elaine": {"color": "#2D5A27", "sheet": "Elaine"},
     "Bigpiao": {"color": "#F0B476", "sheet": "Bigpiao"}
 }
 
@@ -20,26 +20,29 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (醒目按鈕 + 精緻大字) ---
+# --- 1. 視覺風格 (強制鎖死 1.8em，僅放大卡片) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 月曆字體微調 1.8em */
+    /* 🚀 月曆字體：絕對鎖死 1.8em，不准變小 */
     div.fc-event {{
         background-color: {user_color} !important;
         border: none !important; border-radius: 0px !important; 
         min-height: 4.2em !important; display: flex !important; align-items: center !important;
     }}
     .fc-event-title {{
-        font-size: 1.8em !important; font-weight: 900 !important; 
-        color: white !important; text-align: center !important; width: 100% !important;
+        font-size: 1.8em !important; 
+        font-weight: 900 !important; 
+        color: white !important; 
+        text-align: center !important; 
+        width: 100% !important;
         line-height: 1.1 !important;
     }}
     .fc-daygrid-day-frame {{ min-height: 120px !important; }}
 
-    /* 🚀 醒目按鈕：更大、更厚實 */
+    /* 🚀 醒目按鈕：維持原本的高大粗 */
     .stButton > button {{
         width: 100%;
         border-radius: 15px !important;
@@ -60,15 +63,52 @@ st.markdown(f"""
         transform: scale(1.02);
     }}
 
-    /* 🚀 航班資訊卡片 */
+    /* 🚀 【航班資訊卡片】 - 依照圖片要求變大變漂亮 */
     .flight-card {{
-        background: #1A1A1A; border-radius: 20px; padding: 20px;
-        border: 3px solid {user_color}; margin-top: 15px;
+        background: #1A1A1A; 
+        border-radius: 20px; 
+        padding: 35px !important; /* 暴力增加內距 */
+        border: 4px solid {user_color} !important; 
+        margin-top: 20px;
     }}
-    .card-title {{ color: {user_color}; font-size: 1.5rem !important; font-weight: 800; margin: 0; }}
-    .card-dest {{ font-size: 1.8rem !important; font-weight: 900; margin: 8px 0; }}
-    .time-box {{ display: flex; justify-content: space-between; background: #262626; padding: 12px; border-radius: 10px; margin: 8px 0; border: 1px solid #333; }}
-    .time-val {{ font-size: 1.4rem !important; font-weight: 800; color: white; margin: 0; }}
+    .card-title {{ 
+        color: {user_color}; 
+        font-size: 2.2rem !important; /* 班號更大 */
+        font-weight: 900; 
+        margin: 0; 
+    }}
+    .card-dest {{ 
+        font-size: 3.5rem !important; /* 地點超級大 */
+        font-weight: 950; 
+        margin: 20px 0; 
+        line-height: 1;
+    }}
+    .card-info {{ 
+        font-size: 1.5rem !important; /* 報到時間變大 */
+        color: #BBB; 
+        margin-bottom: 15px; 
+    }}
+    
+    .time-box {{ 
+        display: flex; 
+        justify-content: space-between; 
+        background: #262626; 
+        padding: 20px; 
+        border-radius: 15px; 
+        margin: 15px 0; 
+        border: 1px solid #444; 
+    }}
+    .time-val {{ 
+        font-size: 2.2rem !important; /* 起降時間變大 */
+        font-weight: 800; 
+        color: white; 
+        margin: 0; 
+    }}
+    .time-label {{ 
+        font-size: 1.2rem; 
+        color: #888; 
+        margin-bottom: 5px; 
+    }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -82,7 +122,7 @@ with st.sidebar:
     st.divider()
     info_placeholder = st.container()
 
-# --- 3. 數據解析 ---
+# --- 3. 數據解析 (絕對不改) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 click_lookup = {} 
@@ -126,18 +166,18 @@ try:
                     calendar_events.append({"title": rtn_fno, "start": r_key, "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True})
             except: pass
 except Exception as e:
-    st.sidebar.error(f"讀取錯誤：{e}")
+    st.sidebar.error(f"錯誤：{e}")
 
-# --- 4. 渲染月曆 ---
+# --- 4. 渲染月曆 (🚀 固定 Key 確保 CSS 渲染不縮小) ---
 st.title(f"💖 {st.session_state.current_user}")
 state = calendar(
     events=calendar_events, 
     options={"initialDate": "2026-04-01", "displayEventTime": False, "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}}, 
     custom_css=f".fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}",
-    key=f"cal_final_stable_{st.session_state.current_user}"
+    key=f"cal_vfinal_fix_18em_{st.session_state.current_user}"
 )
 
-# --- 5. 點擊顯示 (起降資訊鎖死) ---
+# --- 5. 點擊顯示 (暴力大卡片) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = click_lookup.get(clicked_date)
@@ -156,14 +196,15 @@ if state.get("eventClick"):
                     report = get_v(['報到時間', '報到'])
                     dep_t = get_v(['起飛時間', '起飛'])
                     arr_t = get_v(['落地時間', '降落時間', '降落', 'ARR'])
+
                     st.markdown(f"""
                         <div class="flight-card">
                             <p class="card-title">CI {target_f}</p>
                             <p class="card-dest">📍 {dest}</p>
-                            <p style="font-size:1.1rem; color:#BBB; margin-bottom:5px;">⏰ 報到時間: {report}</p>
+                            <p class="card-info">⏰ 報到時間: {report}</p>
                             <div class="time-box">
                                 <div style="text-align:center;"><p class="time-label">起飛 DEP</p><p class="time-val">{dep_t}</p></div>
-                                <div style="align-self:center; color:#555;">✈️</div>
+                                <div style="align-self:center; color:#555; font-size:2rem;">✈️</div>
                                 <div style="text-align:center;"><p class="time-label">落地 ARR</p><p class="time-val">{arr_t}</p></div>
                             </div>
                         </div>
