@@ -67,12 +67,11 @@ with st.sidebar:
     st.divider()
     details_container = st.empty()
 
-# --- 3. 數據讀取 (🚀 直接讀取，不進資料夾) ---
+# --- 3. 數據讀取 (讀取同層目錄的 CAL_Roster.xlsx) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 roster_lookup = {}
 
-# 📂 因為檔案都在最外面，直接寫檔名就好！
 roster_path = "CAL_Roster.xlsx"
 flight_db_path = "my_flights.csv"
 
@@ -82,9 +81,7 @@ try:
         flight_db.columns = flight_db.columns.str.strip()
         flight_db['班號'] = flight_db['班號'].astype(str).str.replace('CI', '').str.strip()
     
-    if not os.path.exists(roster_path):
-        st.error(f"❌ 依然找不到檔案！請確認檔名是否為 '{roster_path}'")
-    else:
+    if os.path.exists(roster_path):
         user_df = pd.read_excel(roster_path, sheet_name=st.session_state.current_user)
         user_df.columns = user_df.columns.str.strip()
         
@@ -93,8 +90,12 @@ try:
             clean_date = raw_date.strftime('%Y-%m-%d') if isinstance(raw_date, datetime) else str(raw_date).split()[0]
             f_no = str(row['班號']).strip()
             memo = str(row.get('備註', '')).strip()
+            
+            # 🚀 存入備註供點擊查詢
             roster_lookup[clean_date] = {"fno": f_no, "memo": memo}
             calendar_events.append({"title": f_no, "start": clean_date, "end": clean_date, "allDay": True})
+    else:
+        st.error(f"❌ 找不到檔案！請確認 GitHub 上是否有 '{roster_path}'")
 except Exception as e:
     st.sidebar.error(f"讀取出錯：{str(e)}")
 
@@ -103,25 +104,32 @@ st.title(f"💖 {st.session_state.current_user}'s Roster")
 custom_css = ".fc-event-title { font-size: 1.8em !important; font-weight: 900 !important; text-align: center !important; color: white !important; }"
 state = calendar(events=calendar_events, options={"contentHeight": "auto", "displayEventTime": False, "dayMaxEvents": False}, custom_css=custom_css, key=f"cal_{st.session_state.current_user}")
 
-# --- 5. 詳情顯示邏輯 (備註連動) ---
+# --- 5. 詳情顯示邏輯 (🚀 完完全全只看備註) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = roster_lookup.get(clicked_date, {})
     main_f = info.get("fno", "")
-    memo = info.get("memo", "")
+    memo = str(info.get("memo", ""))
     
-    flight_list = [main_f]
-    memo_numbers = re.findall(r'\d+', memo)
-    for num in memo_numbers:
-        if num not in flight_list: flight_list.append(num)
+    # 🚀 建立班號清單：先放主班號
+    search_list = [main_f]
+
+    # 🚀 從「備註」欄位裡把所有的數字抓出來
+    # 不管備註寫 "117"、"116/117"、"回程117"，只要有數字就加進去顯示
+    memo_nums = re.findall(r'\d+', memo)
+    for n in memo_nums:
+        if n not in search_list:
+            search_list.append(n)
 
     with details_container.container():
-        for t in flight_list:
+        for t in search_list:
             match = flight_db[flight_db['班號'] == t]
             if not match.empty:
                 r = match.iloc[0]
+                # 判定 STAY / FLY 標籤 (備註有過夜/stay字眼才標 STAY)
                 is_stay = any(word in memo.lower() for word in ["過夜", "stay"])
-                tag = "STAY" if is_stay else ("GO" if t == flight_list[0] and len(flight_list) > 1 else ("RTN" if len(flight_list) > 1 else "FLY"))
+                tag = "STAY" if is_stay else ("GO" if (len(search_list) > 1 and t == search_list[0]) else ("RTN" if len(search_list) > 1 else "FLY"))
+                
                 st.markdown(f"""
                     <div class="report-card">
                         <h2 style='color:{user_color}; margin:0;'>CI {t} <span style='font-size:0.8rem; background:{user_color}; color:white; padding:2px 8px; border-radius:5px; vertical-align:middle;'>{tag}</span></h2>
