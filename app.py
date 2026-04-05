@@ -22,7 +22,7 @@ if "clicked_date" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (膠囊按鈕保持靠左) ---
+# --- 1. 視覺風格 ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
@@ -74,7 +74,7 @@ for i, name in enumerate(CREW_CONFIG.keys()):
 st.markdown(f"<h2 style='margin: 5px 0; text-align:center; font-size:1.2rem; color:{user_color};'>💖 {st.session_state.current_user}</h2>", unsafe_allow_html=True)
 info_box = st.container()
 
-# --- 3. 數據解析 (🚀 邏輯：當天來回不顯示回程於月曆) ---
+# --- 3. 數據解析 (🚀 長班填色強效版) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 click_lookup = {}
@@ -96,30 +96,39 @@ try:
         f_no = str(row['班號']).strip()
         memo = str(row.get('備註', '')).strip()
         
-        # 建立點擊索引
         if d_str not in click_lookup: click_lookup[d_str] = {"flights": [], "memo": memo}
         
-        # 1. 處理去程 (永遠顯示在月曆)
+        # 1. 去程
         if f_no and f_no.lower() != "nan":
             click_lookup[d_str]["flights"].append(f_no)
             calendar_events.append({"title": f_no, "start": d_str, "allDay": True})
         
-        # 2. 處理回程
+        # 2. 回程與填色
         rtn_match = re.search(r'回程\s*(\d+)', memo)
         date_match = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', memo)
         
         if rtn_match:
             r_fno = rtn_match.group(1)
-            r_date_str = d_str # 預設當天
+            r_date_str = d_str
             if date_match:
-                r_date_str = pd.to_datetime(date_match.group(1)).strftime('%Y-%m-%d')
+                r_dt = pd.to_datetime(date_match.group(1))
+                r_date_str = r_dt.strftime('%Y-%m-%d')
+                
+                # 🚀 填補中間日期顏色 (Stay Events)
+                if (r_dt - d_dt).days > 1:
+                    stay_start = (d_dt + timedelta(days=1)).strftime('%Y-%m-%d')
+                    calendar_events.append({
+                        "title": " ", 
+                        "start": stay_start, 
+                        "end": r_date_str, 
+                        "allDay": True,
+                        "display": "background" # 這是 FullCalendar 的背景填色模式
+                    })
+                
+                # 回程不同天，加到月曆
+                if r_date_str != d_str:
+                    calendar_events.append({"title": r_fno, "start": r_date_str, "allDay": True})
             
-            # 🚀 關鍵邏輯：
-            # 如果回程日期與去程不同 -> 才加到月曆事件裡
-            if r_date_str != d_str:
-                calendar_events.append({"title": r_fno, "start": r_date_str, "allDay": True})
-            
-            # 不論是否同天，點擊資訊都要有這班
             if r_date_str not in click_lookup: click_lookup[r_date_str] = {"flights": [], "memo": "回程航班"}
             if r_fno not in click_lookup[r_date_str]["flights"]:
                 click_lookup[r_date_str]["flights"].append(r_fno)
@@ -142,7 +151,7 @@ cal_state = calendar(
 if cal_state.get("eventClick"):
     st.session_state.clicked_date = cal_state["eventClick"]["event"]["start"].split('T')[0]
 
-# --- 5. 顯示卡片 ---
+# --- 5. 顯示卡片 (🚀 報到時間大字版) ---
 if st.session_state.clicked_date:
     day_data = click_lookup.get(st.session_state.clicked_date)
     if day_data and day_data["flights"]:
@@ -161,14 +170,14 @@ if st.session_state.clicked_date:
 
                 st.markdown(f"""
                     <div style="background:#1A1A1A; border-radius:15px; padding:15px; border:3px solid {user_color}; margin-top:10px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
                             <span style="color:{user_color}; font-size:1.1rem; font-weight:900;">CI {target}</span>
-                            <span style="font-size:0.8rem; color:#888;">⏰ 報到: {report}</span>
+                            <span style="font-size:1.1rem; font-weight:900; color:#FFFFFF; background:{user_color}44; padding:2px 8px; border-radius:5px;">⏰ 報到: {report}</span>
                         </div>
-                        <p style="font-size:1.5rem; font-weight:950; margin:8px 0;">📍 {dest}</p>
-                        <div style="display:flex; justify-content:space-between; background:#262626; padding:10px; border-radius:10px;">
-                            <div style="text-align:center;"><p style="font-size:0.7rem; color:#888; margin:0;">起飛</p><p style="font-size:1.2rem; font-weight:800; color:white; margin:0;">{dep}</p></div>
-                            <div style="text-align:center;"><p style="font-size:0.7rem; color:#888; margin:0;">落地</p><p style="font-size:1.2rem; font-weight:800; color:white; margin:0;">{arr}</p></div>
+                        <p style="font-size:1.6rem; font-weight:950; margin:10px 0;">📍 {dest}</p>
+                        <div style="display:flex; justify-content:space-between; background:#262626; padding:12px; border-radius:10px;">
+                            <div style="text-align:center;"><p style="font-size:0.75rem; color:#888; margin:0;">起飛 DEP</p><p style="font-size:1.3rem; font-weight:800; color:white; margin:0;">{dep}</p></div>
+                            <div style="text-align:center;"><p style="font-size:0.75rem; color:#888; margin:0;">落地 ARR</p><p style="font-size:1.3rem; font-weight:800; color:white; margin:0;">{arr}</p></div>
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
