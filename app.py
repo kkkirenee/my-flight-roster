@@ -32,14 +32,14 @@ st.markdown(f"""
         border: none !important;
         border-radius: 0px !important; 
         margin: 0 !important;
-        min-height: 4.5em !important; 
+        min-height: 3.5em !important; 
         display: flex !important;
         align-items: center !important;
         cursor: pointer !important;
     }}
     
     .fc-event-title {{
-        font-size: 2.2em !important; 
+        font-size: 2.0em !important; 
         font-weight: 900 !important; 
         color: white !important;
         text-align: center !important;
