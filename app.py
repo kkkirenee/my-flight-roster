@@ -68,25 +68,26 @@ with st.sidebar:
     st.subheader("📋 Flight Details")
     details_container = st.empty()
 
-# --- 3. 數據讀取 (正確路徑：FlightCalendar) ---
+# --- 3. 數據讀取 (使用妳提供的桌面路徑) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 roster_lookup = {}
 
-# 🚀 修正路徑：FlightCalendar (注意拼寫)
-roster_filename = "CAL_Roster.xlsx"
-roster_folder = "FlightCalendar"
-roster_path = os.path.join(roster_folder, roster_filename)
+# 🚀 修正為妳電腦的桌面路徑 (r 代表原始字串，防止反斜線報錯)
+roster_path = r"C:\Users\Irene\Desktop\FlightCalendar\CAL_Roster.xlsx"
+# 假設 csv 檔案也在同一個資料夾，如果不是請修改這裡
+flight_db_path = r"C:\Users\Irene\Desktop\FlightCalendar\my_flights.csv"
 
 try:
-    # 讀取航班字典 (csv 通常放在跟 app.py 同一層)
-    flight_db = pd.read_csv("my_flights.csv", encoding='utf-8-sig')
-    flight_db.columns = flight_db.columns.str.strip()
-    flight_db['班號'] = flight_db['班號'].astype(str).str.replace('CI', '').str.strip()
+    # 讀取航班字典
+    if os.path.exists(flight_db_path):
+        flight_db = pd.read_csv(flight_db_path, encoding='utf-8-sig')
+        flight_db.columns = flight_db.columns.str.strip()
+        flight_db['班號'] = flight_db['班號'].astype(str).str.replace('CI', '').str.strip()
     
     # 讀取班表
     if not os.path.exists(roster_path):
-        st.error(f"❌ 依然找不到檔案！目前路徑設定為: {roster_path}")
+        st.error(f"❌ 找不到檔案！請檢查路徑: {roster_path}")
     else:
         user_df = pd.read_excel(roster_path, sheet_name=st.session_state.current_user)
         user_df.columns = user_df.columns.str.strip()
@@ -97,7 +98,6 @@ try:
             f_no = str(row['班號']).strip()
             memo = str(row.get('備註', '')).strip()
             
-            # 存入字典供點擊後讀取
             roster_lookup[clean_date] = {"fno": f_no, "memo": memo}
             
             calendar_events.append({
@@ -109,29 +109,24 @@ except Exception as e:
 
 # --- 4. 主月曆 ---
 st.title(f"💖 {st.session_state.current_user}'s Roster")
-
 calendar_options = {
     "headerToolbar": {"left": "prev,next", "center": "title", "right": "dayGridMonth"},
-    "initialView": "dayGridMonth",
     "initialDate": today_str,
     "contentHeight": "auto",
     "displayEventTime": False,
     "dayMaxEvents": False
 }
-
-# 🚀 這是妳最喜歡的 1.8em 大粗體
 custom_css = ".fc-event-title { font-size: 1.8em !important; font-weight: 900 !important; text-align: center !important; color: white !important; }"
-
 state = calendar(events=calendar_events, options=calendar_options, custom_css=custom_css, key=f"cal_{st.session_state.current_user}")
 
-# --- 5. 詳情顯示邏輯 (根據備註決定回程) ---
+# --- 5. 詳情顯示邏輯 (備註連動) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = roster_lookup.get(clicked_date, {})
     main_f = info.get("fno", "")
     memo = info.get("memo", "")
     
-    # 🚀 根據備註抓取數字（回程班號）
+    # 從備註抓取數字（回程班號）
     flight_list = [main_f]
     memo_numbers = re.findall(r'\d+', memo)
     for num in memo_numbers:
@@ -143,7 +138,6 @@ if state.get("eventClick"):
             match = flight_db[flight_db['班號'] == t]
             if not match.empty:
                 r = match.iloc[0]
-                # 判定標籤
                 is_stay = any(word in memo.lower() for word in ["過夜", "stay"])
                 tag = "STAY" if is_stay else ("GO" if t == flight_list[0] and len(flight_list) > 1 else ("RTN" if len(flight_list) > 1 else "FLY"))
                 
@@ -154,9 +148,9 @@ if state.get("eventClick"):
                             <span class="tag">{tag}</span>
                         </div>
                         <p style='margin:15px 0 5px 0; font-size:1.3rem;'>📍 <b>{r['目的地']}</b></p>
-                        <p style='font-size:1.1rem; margin:2px 0;'>⏰ 報到: <span style='color:{user_color}; font-weight:800;'>{r.get('報到時間','--:--')}</span></p>
+                        <p style='font-size:1.1rem;'>⏰ 報到: <span style='color:{user_color}; font-weight:800;'>{r.get('報到時間','--:--')}</span></p>
                         <hr style='border-color:#444; margin:10px 0;'>
-                        <p style='font-size:0.9rem; color:#AAA; margin:0;'>🛫 {r.get('起飛時間','--:--')} | 🛬 {r.get('落地時間','--:--')}</p>
+                        <p style='font-size:0.9rem; color:#AAA;'>🛫 {r.get('起飛時間','--:--')} | 🛬 {r.get('落地時間','--:--')}</p>
                     </div>
                 """, unsafe_allow_html=True)
 else:
