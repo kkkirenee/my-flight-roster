@@ -32,21 +32,15 @@ USERS_DATA = {
     "小米": { "color": "#76C9F0", "roster": {"2026-04-05": "116", "2026-04-14": "527"} },
     "大飄": { "color": "#F0B476", "roster": {"2026-04-04": "150", "2026-04-16": "517"} }
 }
+# --- 3. 安全獲取目前選中者的資料 ---
+# 如果暫存的人名不在名冊裡（或是第一次啟動），就強制選回 IRENE
+if st.session_state.current_user not in USERS_DATA:
+    st.session_state.current_user = "IRENE"
 
-# --- 3. 強制粉紅 CSS 鎖定 ---
-user_color = USERS_DATA[st.session_state.current_user]["color"]
+current_user = st.session_state.current_user
+user_info = USERS_DATA[current_user]
+user_color = user_info["color"]
 
-st.markdown(f"""
-    <style>
-    .stApp {{ background-color: {BG_BLACK}; color: white; }}
-    #MainMenu, footer, header {{ visibility: hidden; }}
-    
-    /* 🚀 暴力鎖死：月曆格子底色與大白字 */
-    .fc-event, .fc-event-main {{
-        background-color: {user_color} !important;
-        border-color: {user_color} !important;
-        background: {user_color} !important;
-    }}
     
     .fc-event-title {{
         font-size: 2.2em !important; /* 數字維持最大 */
