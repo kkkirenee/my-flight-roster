@@ -22,27 +22,51 @@ CREW_CONFIG = {
 }
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (卡片樣式) ---
+# --- 1. 視覺風格鎖定 (最強權限 CSS) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     [data-testid="stSidebar"] {{ background-color: #151515; border-right: 2px solid {user_color}; }}
     
-    /* 這裡只管側邊欄和卡片，月曆交給 JS */
+    /* 🚀 鎖定底色：去藍變粉 */
+    .fc-event, .fc-event-main, .fc-daygrid-event, .fc-event-title-container {{
+        background-color: {user_color} !important;
+        border: none !important;
+        background: {user_color} !important;
+    }}
+    
+    /* 🚀 鎖定字體：35px 白色大粗體，絕對置中 */
+    .fc-event-title {{
+        font-size: 35px !important;
+        font-weight: 900 !important;
+        color: white !important;
+        text-align: center !important;
+        display: block !important;
+        padding: 8px 0 !important;
+    }}
+
+    /* 🚀 鎖定格子：撐開高度防止字被切掉 */
+    .fc-daygrid-event-harness {{ 
+        min-height: 65px !important; 
+        margin-bottom: 5px !important;
+    }}
+    .fc-daygrid-day-frame {{ min-height: 110px !important; }}
+
     .report-card {{
-        background: #1A1A1A; border-radius: 20px; padding: 20px;
+        background: #1A1A1A; border-radius: 15px; padding: 20px;
         border: 2px solid {user_color}; margin-top: 10px;
     }}
+    
     div.stButton > button {{
         background-color: #262626; color: white; border: 1px solid #444;
-        font-weight: 900; width: 100%; border-radius: 12px; height: 3.5em;
+        font-weight: 900; width: 100%; border-radius: 10px; height: 3em;
     }}
     div.stButton > button:hover {{ border-color: {user_color}; color: {user_color} !important; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 側邊導覽 ---
+# --- 2. 側邊導覽 (SCHEDULE) ---
 with st.sidebar:
     st.markdown(f"<h1 style='text-align:center; color:{user_color}; font-weight:900;'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
     st.divider()
@@ -51,7 +75,6 @@ with st.sidebar:
             st.session_state.current_user = name
             st.rerun()
     st.divider()
-    st.subheader("📋 Flight Details")
     details_container = st.empty()
 
 # --- 3. 數據讀取 ---
@@ -69,37 +92,36 @@ try:
         raw_date = row['日期']
         clean_date = raw_date.strftime('%Y-%m-%d') if isinstance(raw_date, datetime) else str(raw_date).split()[0]
         calendar_events.append({
-            "title": str(row['班號']), "start": clean_date, "end": clean_date, "allDay": True,
-            "backgroundColor": user_color, "borderColor": user_color # 鎖定底色
+            "title": str(row['班號']), 
+            "start": clean_date, 
+            "end": clean_date, 
+            "allDay": True,
+            "backgroundColor": user_color,
+            "borderColor": user_color
         })
-except Exception as e:
-    st.sidebar.error(f"找不到 {st.session_state.current_user} 的班表")
+except:
+    st.sidebar.error(f"讀取 {st.session_state.current_user} 失敗")
 
-# --- 4. 主月曆 (暴力 JS 注入) ---
+# --- 4. 主月曆 ---
 st.title(f"💖 {st.session_state.current_user}'s Roster")
 
-# 🚀 這裡是關鍵：eventContent 裡面寫 JavaScript 暴力換字體
-calendar_options = {
-    "initialDate": today_str,
-    "contentHeight": 750,
-    "displayEventTime": False,
-    "dayMaxEvents": False,
-    # 暴力大字術：強制將文字層（.fc-event-title）的字體設為 35px，並刪除不需要的點點和時間
-    "eventContent": {
-        "html": f"<div style='font-size:35px; font-weight:900; text-align:center; color:white; width:100%;'>{{{{title}}}}</div>"
-    },
-}
+state = calendar(
+    events=calendar_events, 
+    options={
+        "initialDate": today_str,
+        "contentHeight": 750,
+        "displayEventTime": False,
+        "dayMaxEvents": False, # 強制顯示完整 Event，不縮成點點
+    }, 
+    key=f"cal_{st.session_state.current_user}"
+)
 
-state = calendar(events=calendar_events, options=calendar_options, key=f"cal_{st.session_state.current_user}")
-
-# --- 5. 詳情顯示 ---
+# --- 5. 詳情顯示 (所有人邏輯同步) ---
 if state.get("eventClick"):
     full_title = state["eventClick"]["event"]["title"].strip()
     
-    if st.session_state.current_user == "Isabelle":
-        stay_list = ["150", "771", "721", "761"]
-    else:
-        stay_list = ["150", "130", "731", "721"]
+    # 判斷過夜班清單
+    stay_list = ["150", "771", "721", "761"] if st.session_state.current_user == "Isabelle" else ["150", "130", "731", "721"]
 
     flight_numbers = re.findall(r'\d+', full_title)
     
@@ -108,11 +130,7 @@ if state.get("eventClick"):
             match = flight_db[flight_db['班號'] == fno]
             if not match.empty:
                 r = match.iloc[0]
-                # 判定 STAY / GO / RTN
-                if fno in stay_list:
-                    tag = "STAY"
-                else:
-                    tag = "GO" if (len(flight_numbers) > 1 and fno == flight_numbers[0]) else ("RTN" if len(flight_numbers) > 1 else "STAY")
+                tag = "STAY" if fno in stay_list else ("GO" if (len(flight_numbers) > 1 and fno == flight_numbers[0]) else ("RTN" if len(flight_numbers) > 1 else "STAY"))
                 
                 st.markdown(f"""
                     <div class="report-card">
@@ -120,8 +138,8 @@ if state.get("eventClick"):
                             <h2 style='color:{user_color}; margin:0;'>CI {fno}</h2>
                             <span style='background:{user_color}; color:white; padding:2px 8px; border-radius:5px; font-size:0.8rem;'>{tag}</span>
                         </div>
-                        <p style='margin:10px 0 5px 0; font-size:1.3rem; font-weight:800;'>📍 {r['目的地']}</p>
-                        <p style='font-size:1.1rem; margin:2px 0;'>⏰ 報到: <span style='color:{user_color}; font-weight:800;'>{r.get('報到時間','--:--')}</span></p>
+                        <p style='margin:10px 0; font-size:1.3rem; font-weight:800;'>📍 {r['目的地']}</p>
+                        <p style='font-size:1.1rem; margin:2px 0;'>⏰ 報到: {r.get('報到時間','--:--')}</p>
                         <hr style='border-color:#444; margin:10px 0;'>
                         <p style='font-size:0.9rem; color:#AAA; margin:0;'>🛫 {r.get('起飛時間','--:--')} | 🛬 {r.get('落地時間','--:--')}</p>
                     </div>
