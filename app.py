@@ -20,11 +20,12 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (2em 大字 + 無縫填滿) ---
+# --- 1. 視覺風格 (2em 大字 + 強制填滿 + 顏色鎖死) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
+    
     .fc-daygrid-event-harness {{ margin: 0 !important; padding: 0 !important; }}
     .fc-daygrid-day-events {{ margin: 0 !important; padding: 0 !important; }}
     
@@ -40,43 +41,44 @@ st.markdown(f"""
     }}
     
     .fc-event-title {{
-        font-size: 2em !important; 
+        font-size: 2.2em !important; 
         font-weight: 900 !important; 
         color: white !important;
         text-align: center !important;
         width: 100% !important;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
     }}
 
     .fc-daygrid-day-frame {{ min-height: 120px !important; }}
 
     .flight-card {{
         background: #1A1A1A; border-radius: 20px; padding: 25px;
-        border: 2px solid {user_color}; margin-top: 20px;
+        border: 3px solid {user_color}; margin-top: 20px;
     }}
     </style>
     """, unsafe_allow_html=True)
 
 # --- 2. 側邊欄 ---
 with st.sidebar:
-    st.markdown(f"<h2 style='color:{user_color}'>✈️ SCHEDULE</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='color:{user_color}; font-weight:900;'>✈️ SCHEDULE</h2>", unsafe_allow_html=True)
     for name in CREW_CONFIG.keys():
-        if st.button(name):
+        if st.button(name, key=f"btn_{name}"):
             st.session_state.current_user = name
             st.rerun()
     st.divider()
     info_placeholder = st.empty()
 
-# --- 3. 數據解析 (建立對照表) ---
+# --- 3. 數據解析 (🚀 建立精準的班號與日期對照表) ---
 calendar_events = []
 flight_db = pd.DataFrame()
-roster_lookup = {} 
+click_lookup = {} # 🚀 這是點擊時的最高準則
 
 try:
     if os.path.exists("my_flights.csv"):
         flight_db = pd.read_csv("my_flights.csv", encoding='utf-8-sig')
         flight_db.columns = flight_db.columns.str.strip()
-        # 清洗 CSV 班號：CI112 -> 112
-        flight_db['班號_clean'] = flight_db['班號'].astype(str).str.upper().str.replace('CI', '').str.strip()
+        # CSV 班號清洗：CI112 -> 112
+        flight_db['f_clean'] = flight_db['班號'].astype(str).str.upper().str.replace('CI', '').str.strip()
 
     xl = pd.ExcelFile("CAL_Roster.xlsx")
     df = pd.read_excel(xl, sheet_name=CREW_CONFIG[st.session_state.current_user]["sheet"])
@@ -88,6 +90,7 @@ try:
         f_no = str(row['班號']).strip()
         memo = str(row.get('備註', '')).strip()
 
+        # 判定回程
         end_dt = start_dt
         rtn_fno = ""
         date_pattern = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', memo)
@@ -98,27 +101,34 @@ try:
                 if rtn_match: rtn_fno = rtn_match.group(1)
             except: pass
 
-        # 去程資訊
+        # 存入對照表 (日期 -> 班號與備註)
         d_key = start_dt.strftime('%Y-%m-%d')
-        roster_lookup[d_key] = {"fno": f_no, "memo": memo}
+        click_lookup[d_key] = {"fno": f_no, "memo": memo}
 
         if end_dt > start_dt:
+            # 去程事件
             calendar_events.append({"title": f_no, "start": d_key, "end": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True})
+            # 中間色塊
             if (end_dt - start_dt).days > 1:
                 calendar_events.append({"title": " ", "start": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "end": end_dt.strftime('%Y-%m-%d'), "allDay": True})
+            # 回程事件
             if rtn_fno:
                 r_key = end_dt.strftime('%Y-%m-%d')
-                roster_lookup[r_key] = {"fno": rtn_fno, "memo": f"回程航班 {rtn_fno} (去程 CI{f_no})"}
+                click_lookup[r_key] = {"fno": rtn_fno, "memo": f"回程自 {start_dt.strftime('%m/%d')} CI{f_no}"}
                 calendar_events.append({"title": rtn_fno, "start": r_key, "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True})
         else:
+            # 單日班
             calendar_events.append({"title": f_no, "start": d_key, "end": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True})
 
 except Exception as e:
-    st.sidebar.error(f"讀取錯誤：{e}")
+    st.sidebar.error(f"Excel 讀取失敗：{e}")
 
-# --- 4. 渲染月曆 (使用固定 Key 確保點擊有效) ---
+# --- 4. 渲染月曆 ---
 st.title(f"💖 {st.session_state.current_user}")
-cal_custom_css = f".fc-event-title {{ font-size: 2em !important; font-weight: 900 !important; }}"
+cal_custom_css = f"""
+    .fc-event {{ background-color: {user_color} !important; border: none !important; }}
+    .fc-event-title {{ font-size: 2.2em !important; font-weight: 900 !important; }}
+"""
 
 state = calendar(
     events=calendar_events, 
@@ -127,19 +137,20 @@ state = calendar(
         "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
     }, 
     custom_css=cal_custom_css,
-    key="fixed_calendar_v100" # 🚀 固定 Key，不准亂跳！
+    key=f"cal_final_{st.session_state.current_user}" # 🚀 動態 Key 確保點擊不失效
 )
 
-# --- 5. 點擊顯示 (最強修復邏輯) ---
+# --- 5. 🚀 點擊顯示資訊 (終極對齊 CSV) ---
 if state.get("eventClick"):
-    # 修正：直接從 event 對象抓取日期
     try:
+        # 從月曆抓取被點擊的日期
         clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
-        info = roster_lookup.get(clicked_date)
+        info = click_lookup.get(clicked_date)
         
         if info:
             target_f = str(info['fno']).upper().replace('CI', '').strip()
-            match = flight_db[flight_db['班號_clean'] == target_f] if not flight_db.empty else pd.DataFrame()
+            # 拿班號去 CSV 撈
+            match = flight_db[flight_db['f_clean'] == target_f] if not flight_db.empty else pd.DataFrame()
             
             with info_placeholder.container():
                 if not match.empty:
@@ -147,7 +158,7 @@ if state.get("eventClick"):
                     st.markdown(f"""
                         <div class="flight-card">
                             <h2 style='color:{user_color}; margin:0;'>CI {target_f}</h2>
-                            <p style='font-size:1.8rem; font-weight:900; margin:15px 0;'>📍 {r['目的地']}</p>
+                            <p style='font-size:2rem; font-weight:900; margin:15px 0;'>📍 {r['目的地']}</p>
                             <p style='font-size:1.3rem; margin-bottom:10px;'>⏰ 報到時間: {r.get('報到時間','--:--')}</p>
                             <hr style='border: 0.5px solid #444;'>
                             <p style='color:#AAA; font-size:1rem;'>資訊：{info['memo']}</p>
@@ -157,12 +168,12 @@ if state.get("eventClick"):
                     st.markdown(f"""
                         <div class="flight-card">
                             <h2 style='color:{user_color}; margin:0;'>CI {target_f}</h2>
-                            <p style='margin:20px 0; font-size:1.2rem;'>⚠️ CSV 找不到 {target_f} 資訊</p>
+                            <p style='margin:20px 0; font-size:1.2rem;'>⚠️ CSV 找不到此班號資料</p>
                             <hr style='border: 0.5px solid #444;'>
                             <p style='color:#AAA; font-size:1rem;'>資訊：{info['memo']}</p>
                         </div>
                     """, unsafe_allow_html=True)
     except:
-        info_placeholder.error("解析點擊資料失敗，請重新 Reboot")
+        info_placeholder.warning("請再點擊一次班號")
 else:
     info_placeholder.info("✨ 點擊上方班號查看詳細資訊")
