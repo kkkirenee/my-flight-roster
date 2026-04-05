@@ -3,23 +3,17 @@ import pandas as pd
 from streamlit_calendar import calendar
 from datetime import datetime
 import pytz
+import re
 
-# --- 0. 時區校準 ---
+# --- 0. 基本設定 ---
+st.set_page_config(page_title="CAL SCHEDULE", page_icon="✈️", layout="wide")
 tw_tz = pytz.timezone('Asia/Taipei')
 now_tw = datetime.now(tw_tz)
 today_str = now_tw.strftime("%Y-%m-%d")
 
-# --- 1. 頁面與風格設定 ---
-st.set_page_config(page_title="CAL SCHEDULE", page_icon="✈️", layout="wide")
-
-# 初始化當前使用者
 if "current_user" not in st.session_state:
     st.session_state.current_user = "Irene"
 
-HOT_PINK = "#F07699"
-BG_BLACK = "#0E0E0E"
-
-# 定義成員與對應顏色
 CREW_CONFIG = {
     "Irene": {"color": "#F07699", "icon": "🌸"},
     "Isabelle": {"color": "#A28CF0", "icon": "👤"},
@@ -30,10 +24,9 @@ user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
 st.markdown(f"""
     <style>
-    .stApp {{ background-color: {BG_BLACK}; color: white; }}
+    .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 暴力鎖死月曆內部的顏色與大字 */
     .fc-event {{
         background-color: {user_color} !important;
         border-color: {user_color} !important;
@@ -51,19 +44,15 @@ st.markdown(f"""
         border-radius: 6px; font-size: 0.9rem; font-weight: 900;
     }}
 
-    /* 側邊欄按鈕樣式 */
     div.stButton > button {{
         background-color: #262626; color: white; border: 1px solid #444;
         font-weight: 900; width: 100%; border-radius: 12px; height: 3.5em;
         font-size: 1.1rem; transition: 0.3s; margin-bottom: 10px;
     }}
-    div.stButton > button:hover {{
-        border-color: {user_color}; color: {user_color} !important;
-    }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 側邊導覽列 (SCHEDULE Frame) ---
+# --- 2. 側邊導覽 ---
 with st.sidebar:
     st.markdown(f"<h1 style='text-align:center; color:{user_color};'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
     st.write("---")
@@ -75,9 +64,10 @@ with st.sidebar:
     st.subheader("📋 Flight Details")
     details_container = st.empty()
 
-# --- 3. 數據讀取 ---
+# --- 3. 數據讀取 (核心：讀取備註) ---
 calendar_events = []
 flight_db = pd.DataFrame()
+roster_data = {} # 用來存「日期 -> (班號, 備註)」的關係
 
 try:
     flight_db = pd.read_csv('my_flights.csv', encoding='utf-8-sig')
@@ -90,58 +80,47 @@ try:
     for _, row in user_df.iterrows():
         raw_date = row['日期']
         clean_date = raw_date.strftime('%Y-%m-%d') if isinstance(raw_date, datetime) else str(raw_date).split()[0]
+        f_no = str(row['班號']).strip()
+        memo = str(row.get('備註', '')).strip() # 抓取備註欄
+        
+        # 存入字典供點擊時查詢
+        roster_data[clean_date] = {"fno": f_no, "memo": memo}
+        
         calendar_events.append({
-            "title": str(row['班號']), "start": clean_date, "end": clean_date,
-            "backgroundColor": user_color, "borderColor": user_color, "allDay": True
+            "title": f_no, "start": clean_date, "end": clean_date, "allDay": True
         })
 except Exception as e:
-    st.sidebar.error(f"找不到 {st.session_state.current_user} 的班表")
+    st.sidebar.error(f"讀取失敗，請確認 Excel 是否有「日期」、「班號」、「備註」這三欄")
 
 # --- 4. 顯示主畫面 ---
 st.title(f"💖 {st.session_state.current_user}")
+custom_css = ".fc-event-title { font-size: 1.8em !important; font-weight: 900 !important; text-align: center !important; color: white !important; }"
+state = calendar(events=calendar_events, options={"displayEventTime": False, "dayMaxEvents": False}, custom_css=custom_css, key=f"cal_{st.session_state.current_user}")
 
-col1, col2 = st.columns([2.5, 0.1]) 
-
-with col1:
-    calendar_options = {
-        "headerToolbar": {"left": "prev,next", "center": "title", "right": "dayGridMonth"},
-        "initialView": "dayGridMonth",
-        "initialDate": today_str,
-        "contentHeight": "auto",
-        "displayEventTime": False,
-        "dayMaxEvents": False
-    }
-    # 🚀 妳最滿意的 1.8em 大字
-    custom_css = ".fc-event-title { font-size: 1.8em !important; font-weight: 900 !important; text-align: center !important; color: white !important; }"
-    state = calendar(events=calendar_events, options=calendar_options, custom_css=custom_css, key=f"cal_{st.session_state.current_user}")
-
-# --- 5. 詳情顯示邏輯 (針對 Belle 修正過夜班) ---
+# --- 5. 詳情顯示邏輯 (根據備註決定內容) ---
 if state.get("eventClick"):
-    clicked_fno = state["eventClick"]["event"]["title"].strip()
+    clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
+    day_info = roster_data.get(clicked_date, {})
+    main_fno = day_info.get("fno", "")
+    memo = day_info.get("memo", "")
     
-    # 🚀 根據使用者切換過夜班清單
-    if st.session_state.current_user == "Isabelle":
-        # Belle 的過夜班
-        stay_list = ["150", "771", "721", "761"]
-    else:
-        # Irene 與其他人的預設過夜班
-        stay_list = ["150", "130", "731", "721"]
-    
-    search_list = [clicked_fno]
-    
-    # 如果點擊的班號不在「過夜班」清單中，且是偶數去程，才自動抓回程
-    if clicked_fno not in stay_list:
-        try:
-            if int(clicked_fno) % 2 == 0:
-                search_list.append(str(int(clicked_fno) + 1))
-        except: pass
+    # 🚀 從備註中提取所有班號 (例如備註寫 "116/117 來回"，會抓出 ['116', '117'])
+    # 如果備註沒寫回程，就只顯示主班號
+    flight_list = [main_fno]
+    memo_fnos = re.findall(r'\d+', memo)
+    for f in memo_fnos:
+        if f not in flight_list:
+            flight_list.append(f)
 
     with details_container.container():
-        for t in search_list:
+        for t in flight_list:
             match = flight_db[flight_db['班號'] == t]
             if not match.empty:
                 r = match.iloc[0]
-                tag = "GO" if (len(search_list)>1 and t==clicked_fno) else ("RTN" if len(search_list)>1 else "STAY")
+                # 判定標籤：過夜班 or 來回班
+                is_stay = "過夜" in memo or "Stay" in memo.lower()
+                tag = "STAY" if is_stay else ("GO" if t == flight_list[0] and len(flight_list) > 1 else ("RTN" if len(flight_list) > 1 else "FLY"))
+                
                 st.markdown(f"""
                     <div class="report-card">
                         <div style='display:flex; justify-content:space-between; align-items:center;'>
