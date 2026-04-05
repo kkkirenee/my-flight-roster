@@ -16,143 +16,63 @@ CREW_CONFIG = {
 }
 
 if "current_user" not in st.session_state:
-    st.session_state.current_user = "Irene" 
+    st.session_state.current_user = "Elaine" 
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (🚀 顏色鎖死補丁) ---
+# --- 1. 視覺風格 (🚀 暴力靠左 + 獨立炫炮圓角) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     .block-container {{ padding-top: 0.5rem !important; padding-bottom: 0rem !important; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
-/* 🚀 1. 儀表板組合：徹底消除間距，讓按鈕「聚集」在左邊 */
-    div[data-testid="stHorizontalBlock"] {
+    
+    /* 🚀 1. 儀表板組合：徹底靠左聚集 */
+    div[data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 4px !important; /* 按鈕間的小呼吸縫隙 */
-        justify-content: flex-start !important; /* 絕對靠左 */
+        gap: 2px !important; /* 🚀 按鈕間極小縫隙 */
+        justify-content: flex-start !important; /* 🚀 絕對靠左 */
         align-items: center !important;
         padding: 0px !important;
-        margin-left: -10px !important; /* 🚀 暴力負邊距：修正側邊欄留白，讓它更靠左 */
-    }
+        margin-left: -15px !important; /* 🚀 暴力向左偏移，吃掉邊距 */
+    }}
 
-    [data-testid="column"] {
-        width: fit-content !important; /* 🚀 寬度隨字變，不要平分 25% */
-        flex: 0 0 auto !important;     /* 🚀 這是關鍵：不准撐開空間 */
+    [data-testid="column"] {{
+        width: auto !important;
+        flex: 0 0 auto !important; /* 🚀 不准撐開，按鈕多大就佔多大 */
         padding: 0px !important;
         margin: 0px !important;
-    }
+    }}
 
-    /* 🚀 2. 姓名按鈕：炫炮獨立圓角 + 呼吸光 */
-    .stButton > button {
-        width: 75px !important;  /* 🚀 固定每個按鈕寬度，讓它們「聚」在一起 */
+    /* 🚀 2. 獨立炫炮圓角按鈕 */
+    .stButton > button {{
+        width: 80px !important; /* 🚀 固定寬度讓按鈕聚集 */
         height: 38px !important;
-        font-size: 0.8rem !important;
+        font-size: 0.85rem !important;
         font-weight: 800 !important;
         color: #888 !important;
-        background: #1A1A1A !important;
+        background-color: #1A1A1A !important;
         border: 2px solid #333 !important;
-        border-radius: 12px !important; /* 🚀 保留妳要的漂亮圓角 */
+        border-radius: 12px !important; /* 🚀 保留漂亮的獨立圓角 */
         padding: 0px !important;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    }
+    }}
 
-    /* 🚀 3. 選中狀態：妳要的呼吸霓虹光 */
-    .stButton > button:focus, .stButton > button:active, .stButton > button:hover {
-        background: {user_color} !important;
+    /* 🚀 3. 選中與懸停：呼吸霓虹光 */
+    .stButton > button:focus, .stButton > button:active, .stButton > button:hover {{
+        background-color: {user_color} !important;
         color: white !important;
-        box-shadow: 0 0 15px {user_color}AA !important; /* 呼吸霓虹光 */
+        box-shadow: 0 0 15px {user_color}AA !important; /* 🚀 呼吸光 */
         border: 2px solid white !important;
         z-index: 10;
-        transform: scale(1.05); /* 輕微放大感 */
-    }
-
-    /* 消除電腦版懸停時的預設Streamlit藍色 */
-    .stButton > button:focus:not(:active) {{
-        background-color: #1A1A1A !important;
-        color: #888 !important;
-        border: 2px solid #333 !important;
-        box-shadow: none !important;
-    }}
-        width: 100% !important; 
-        height: 40px !important;
-        font-size: 0.8rem !important; /* 🚀 字體微縮，確保名字不換行 */
-        font-weight: 900 !important;
-        color: #888 !important; /* 未選中時淡淡的 */
-        background: #1A1A1A !important;
-        border: 1px solid #333 !important; /* 🚀 加入極細邊框做出分割感 */
-        border-radius: 0px !important; /* 🚀 預設不圓角，才能緊貼 */
-        padding: 0px !important;
-        transition: all 0.3s ease !important;
+        transform: translateY(-2px); /* 🚀 輕微浮凸感 */
     }}
 
-    /* 🚀 3. 特別處理首尾圓角，讓它看起來像一個完整的長條導覽列 */
-    [data-testid="column"]:first-child button {{ border-top-left-radius: 12px !important; border-bottom-left-radius: 12px !important; }}
-    [data-testid="column"]:last-child button {{ border-top-right-radius: 12px !important; border-bottom-right-radius: 12px !important; }}
-
-    /* 🚀 4. 選中狀態：妳要的炫炮發光效果 */
-    .stButton > button:focus, .stButton > button:active, .stButton > button:hover {{
-        background: {user_color} !important;
-        color: white !important;
-        box-shadow: 0 0 15px {user_color} !important; /* 🚀 霓虹發光 */
-        border: 1px solid white !important;
-        z-index: 10;
-        transform: scale(1.02); /* 🚀 點擊時微浮凸感 */
-    }}
-        width: 100% !important; 
-        height: 42px !important;
-        font-size: 0.85rem !important;
-        font-weight: 900 !important;
-        color: #CCC !important;
-        background: #1A1A1A !important;
-        border: none !important;
-        border-radius: 0px !important; /* 先取消圓角才能緊貼 */
-        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1) !important;
-        position: relative;
-    }}
-
-    /* 🚀 3. 特別處理首尾圓角，讓整體像一塊板子 */
-    [data-testid="column"]:first-child button {{ border-top-left-radius: 10px !important; border-bottom-left-radius: 10px !important; }}
-    [data-testid="column"]:last-child button {{ border-top-right-radius: 10px !important; border-bottom-right-radius: 10px !important; }}
-
-    /* 🚀 4. 選中狀態：發光效果 (Neon Glow) */
-    .stButton > button:focus, .stButton > button:active, .stButton > button:hover {{
-        background: {user_color} !important;
-        color: white !important;
-        box-shadow: 0 0 20px {user_color}88 !important; /* 霓虹發光 */
-        z-index: 2;
-        border-radius: 8px !important; /* 選中時稍微縮一點圓角，做出層次感 */
-        transform: scale(1.05); /* 微放大 */
-    }}
-        width: 100% !important; 
-        height: 40px !important; /* 高度稍微降一點點更精緻 */
-        font-size: 0.8rem !important; /* 字體再縮小一點點點，確保不換行 */
-        font-weight: 800 !important;
-        padding: 0 !important;
-        color: white !important; 
-        background-color: #1A1A1A !important;
-        border-radius: 8px !important; 
-        border: 2px solid transparent !important; 
-        background: linear-gradient(#1A1A1A, #1A1A1A) padding-box,
-                    linear-gradient(135deg, {user_color}88, #0E0E0E) border-box !important;
-    }}
-
-    /* 🚀 月曆顏色強制鎖死 (關鍵！) */
-    .fc-event, .fc-event-main, .fc-daygrid-event {{
-        background-color: {user_color} !important;
-        background: {user_color} !important;
-        border: none !important;
-    }}
-    
-    .fc-event-title {{ 
-        font-size: 1.6em !important; 
-        font-weight: 900 !important; 
-        color: white !important; 
-        text-align: center !important; 
-    }}
-
+    /* 🚀 4. 月曆與手機版適配 */
+    .fc-event, .fc-event-main {{ background-color: {user_color} !important; border: none !important; }}
+    .fc-event-title {{ font-size: 1.6em !important; font-weight: 900 !important; color: white !important; text-align: center !important; }}
     .fc-daygrid-day-frame {{ min-height: 80px !important; }}
     .fc-day-other {{ visibility: hidden !important; }}
 
@@ -162,15 +82,11 @@ st.markdown(f"""
         [data-testid="stSidebar"] {{ display: none; }}
     }}
 
-    .fc .fc-button-primary {{
-        background-color: transparent !important;
-        border: 2px solid {user_color} !important;
-        color: {user_color} !important;
-    }}
+    .fc .fc-button-primary {{ background-color: transparent !important; border: 2px solid {user_color} !important; color: {user_color} !important; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 頂部導覽區 ---
+# --- 2. 頂部導覽 ---
 st.markdown(f"<h1 style='color:{user_color}; font-weight:900; text-align:center; margin-bottom:5px; font-size:1.3rem;'>✈️ CAL SCHEDULE</h1>", unsafe_allow_html=True)
 
 cols = st.columns(4)
@@ -223,8 +139,7 @@ try:
 except Exception as e:
     st.error(f"數據讀取失敗：{e}")
 
-# --- 4. 渲染月曆 (🚀 加強 custom_css 注入) ---
-# 確保月曆內部的 Events 也被強制染色
+# --- 4. 渲染月曆 (🚀 鎖死專屬色) ---
 st_cal_custom_css = f"""
     .fc-event {{ background-color: {user_color} !important; border: none !important; }}
     .fc-event-main {{ background-color: {user_color} !important; }}
@@ -242,7 +157,7 @@ state = calendar(
         "height": "auto"
     }, 
     custom_css=st_cal_custom_css,
-    key=f"cal_v_final_color_fix_{st.session_state.current_user}"
+    key=f"cal_v_final_row_fix_{st.session_state.current_user}"
 )
 
 # --- 5. 點擊顯示 (卡片) ---
