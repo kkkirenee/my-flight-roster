@@ -21,39 +21,47 @@ CREW_CONFIG = {
 }
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 暴力 CSS 最終加強版 ---
+# --- 1. 暴力字體 CSS (精準鎖定) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     
-    /* 🚀 暴力去藍：連點點（Dot）都要變粉紅 */
-    .fc-event, .fc-event-main, .fc-daygrid-event, .fc-daygrid-event-dot {{
+    /* 🚀 移除所有藍色，強制粉紅背景 */
+    .fc-event, .fc-event-main, .fc-daygrid-event {{
         background-color: {user_color} !important;
-        border: none !important;
         background: {user_color} !important;
-        color: white !important;
+        border: none !important;
     }}
 
-    /* 🚀 核心修正：取消點點模式，強制變成整條顯示，字體 40px */
-    .fc-daygrid-event {{
-        display: block !important;
-        padding: 5px !important;
-    }}
-    
-    .fc-event-title, .fc-event-main {{
-        font-size: 40px !important; 
+    /* 🚀 核心：精準放大 116 這種班號字體 */
+    .fc-event-title {{
+        font-size: 3.2rem !important; /* 超級巨無霸字體 */
         font-weight: 900 !important;
         color: white !important;
-        text-align: center !important;
-        line-height: 1 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
     }}
 
-    /* 撐開格子高度，防止大字重疊 */
-    .fc-daygrid-event-harness {{ min-height: 70px !important; margin-bottom: 5px !important; }}
-    .fc-daygrid-day-frame {{ min-height: 130px !important; }}
+    /* 讓班號容器充滿格子，不留空白 */
+    .fc-event-main {{
+        padding: 0 !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }}
+
+    /* 格子高度稍微調回正常，但要足夠裝下大字 */
+    .fc-daygrid-event-harness {{ 
+        height: 55px !important; 
+        margin: 2px 0 !important; 
+    }}
     
-    /* 姓名按鈕縮小 */
-    div.stButton > button {{ font-size: 0.9rem !important; height: 2.5em !important; }}
+    /* 姓名按鈕回歸正常小小的 */
+    div.stButton > button {{ font-size: 0.9rem !important; height: 2.2em !important; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -63,7 +71,7 @@ try:
     flight_db = pd.read_csv('my_flights.csv', encoding='utf-8-sig')
     flight_db['班號'] = flight_db['班號'].astype(str).str.replace('CI', '').str.strip()
     
-    # 根據 st.session_state.current_user 的名字去讀分頁
+    # 讀取 Excel (分頁 Irene / Isabelle)
     user_df = pd.read_excel('CAL_Roster.xlsx', sheet_name=st.session_state.current_user)
     
     for _, row in user_df.iterrows():
@@ -77,14 +85,14 @@ try:
             "allDay": True,
             "backgroundColor": user_color,
             "borderColor": user_color,
-            "display": "block" # 🚀 強制讓它以長條顯示，不要變成點點
+            "display": "block"
         })
 except Exception as e:
     st.sidebar.warning(f"尚未找到 {st.session_state.current_user} 的資料")
 
 # --- 3. 介面呈現 ---
 with st.sidebar:
-    st.markdown(f"### ✈️ Crew Menu")
+    st.markdown(f"### ✈️ Menu")
     for name in CREW_CONFIG.keys():
         if st.button(f"{CREW_CONFIG[name]['icon']} {name}", key=f"btn_{name}"):
             st.session_state.current_user = name
@@ -98,9 +106,9 @@ state = calendar(
     events=calendar_events, 
     options={
         "initialDate": today_str,
-        "contentHeight": 850,
+        "contentHeight": "auto",
         "displayEventTime": False,
-        "dayMaxEventRows": False, # 🚀 這一行最重要！防止它變成點點或 "+ more"
+        "dayMaxEvents": False, # 不縮減，全部顯示
     }, 
     key=f"cal_{st.session_state.current_user}"
 )
@@ -113,8 +121,8 @@ if state.get("eventClick"):
         r = match.iloc[0]
         with details_placeholder.container():
             st.markdown(f"""
-                <div style='background:#1F1F1F; padding:15px; border-radius:12px; border:2px solid {user_color};'>
-                    <h2 style='color:{user_color}; margin:0;'>CI {t}</h2>
-                    <p style='font-size:1.4rem; font-weight:700; margin:10px 0;'>📍 {r['目的地']}</p>
+                <div style='background:#1F1F1F; padding:15px; border-radius:10px; border:2px solid {user_color};'>
+                    <h2 style='color:{user_color};'>CI {t}</h2>
+                    <p style='font-size:1.2rem; font-weight:700;'>📍 {r['目的地']}</p>
                 </div>
             """, unsafe_allow_html=True)
