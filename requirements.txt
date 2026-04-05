@@ -1,6 +1,5 @@
-streamlit
 pandas
-streamlit_calendar
+streamlit
+streamlit-calendar
 pytz
 openpyxl
-plaintext
