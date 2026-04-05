@@ -59,35 +59,31 @@ st.markdown(f"""
 # --- 2. 側邊導覽列 ---
 with st.sidebar:
     st.markdown(f"<h1 style='text-align:center; color:{user_color}; font-weight:900;'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
-    st.write("---")
+    st.divider()
     for name in CREW_CONFIG.keys():
         if st.button(f"{CREW_CONFIG[name]['icon']} {name}", key=f"btn_{name}"):
             st.session_state.current_user = name
             st.rerun()
-    st.write("---")
-    st.subheader("📋 Flight Details")
+    st.divider()
     details_container = st.empty()
 
-# --- 3. 數據讀取 (使用妳提供的桌面路徑) ---
+# --- 3. 數據讀取 (🚀 直接讀取，不進資料夾) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 roster_lookup = {}
 
-# 🚀 修正為妳電腦的桌面路徑 (r 代表原始字串，防止反斜線報錯)
-roster_path = r"C:\Users\Irene\Desktop\FlightCalendar\CAL_Roster.xlsx"
-# 假設 csv 檔案也在同一個資料夾，如果不是請修改這裡
-flight_db_path = r"C:\Users\Irene\Desktop\FlightCalendar\my_flights.csv"
+# 📂 因為檔案都在最外面，直接寫檔名就好！
+roster_path = "CAL_Roster.xlsx"
+flight_db_path = "my_flights.csv"
 
 try:
-    # 讀取航班字典
     if os.path.exists(flight_db_path):
         flight_db = pd.read_csv(flight_db_path, encoding='utf-8-sig')
         flight_db.columns = flight_db.columns.str.strip()
         flight_db['班號'] = flight_db['班號'].astype(str).str.replace('CI', '').str.strip()
     
-    # 讀取班表
     if not os.path.exists(roster_path):
-        st.error(f"❌ 找不到檔案！請檢查路徑: {roster_path}")
+        st.error(f"❌ 依然找不到檔案！請確認檔名是否為 '{roster_path}'")
     else:
         user_df = pd.read_excel(roster_path, sheet_name=st.session_state.current_user)
         user_df.columns = user_df.columns.str.strip()
@@ -97,27 +93,15 @@ try:
             clean_date = raw_date.strftime('%Y-%m-%d') if isinstance(raw_date, datetime) else str(raw_date).split()[0]
             f_no = str(row['班號']).strip()
             memo = str(row.get('備註', '')).strip()
-            
             roster_lookup[clean_date] = {"fno": f_no, "memo": memo}
-            
-            calendar_events.append({
-                "title": f_no, "start": clean_date, "end": clean_date, "allDay": True,
-                "backgroundColor": user_color, "borderColor": user_color
-            })
+            calendar_events.append({"title": f_no, "start": clean_date, "end": clean_date, "allDay": True})
 except Exception as e:
-    st.sidebar.error(f"讀取過程出錯：{str(e)}")
+    st.sidebar.error(f"讀取出錯：{str(e)}")
 
 # --- 4. 主月曆 ---
 st.title(f"💖 {st.session_state.current_user}'s Roster")
-calendar_options = {
-    "headerToolbar": {"left": "prev,next", "center": "title", "right": "dayGridMonth"},
-    "initialDate": today_str,
-    "contentHeight": "auto",
-    "displayEventTime": False,
-    "dayMaxEvents": False
-}
 custom_css = ".fc-event-title { font-size: 1.8em !important; font-weight: 900 !important; text-align: center !important; color: white !important; }"
-state = calendar(events=calendar_events, options=calendar_options, custom_css=custom_css, key=f"cal_{st.session_state.current_user}")
+state = calendar(events=calendar_events, options={"contentHeight": "auto", "displayEventTime": False, "dayMaxEvents": False}, custom_css=custom_css, key=f"cal_{st.session_state.current_user}")
 
 # --- 5. 詳情顯示邏輯 (備註連動) ---
 if state.get("eventClick"):
@@ -126,12 +110,10 @@ if state.get("eventClick"):
     main_f = info.get("fno", "")
     memo = info.get("memo", "")
     
-    # 從備註抓取數字（回程班號）
     flight_list = [main_f]
     memo_numbers = re.findall(r'\d+', memo)
     for num in memo_numbers:
-        if num not in flight_list:
-            flight_list.append(num)
+        if num not in flight_list: flight_list.append(num)
 
     with details_container.container():
         for t in flight_list:
@@ -140,16 +122,12 @@ if state.get("eventClick"):
                 r = match.iloc[0]
                 is_stay = any(word in memo.lower() for word in ["過夜", "stay"])
                 tag = "STAY" if is_stay else ("GO" if t == flight_list[0] and len(flight_list) > 1 else ("RTN" if len(flight_list) > 1 else "FLY"))
-                
                 st.markdown(f"""
                     <div class="report-card">
-                        <div style='display:flex; justify-content:space-between; align-items:center;'>
-                            <h2 style='color:{user_color}; margin:0;'>CI {t}</h2>
-                            <span class="tag">{tag}</span>
-                        </div>
-                        <p style='margin:15px 0 5px 0; font-size:1.3rem;'>📍 <b>{r['目的地']}</b></p>
-                        <p style='font-size:1.1rem;'>⏰ 報到: <span style='color:{user_color}; font-weight:800;'>{r.get('報到時間','--:--')}</span></p>
-                        <hr style='border-color:#444; margin:10px 0;'>
+                        <h2 style='color:{user_color}; margin:0;'>CI {t} <span style='font-size:0.8rem; background:{user_color}; color:white; padding:2px 8px; border-radius:5px; vertical-align:middle;'>{tag}</span></h2>
+                        <p style='margin:10px 0; font-size:1.3rem; font-weight:800;'>📍 {r['目的地']}</p>
+                        <p style='font-size:1.1rem;'>⏰ 報到: {r.get('報到時間','--:--')}</p>
+                        <hr style='border-color:#444;'>
                         <p style='font-size:0.9rem; color:#AAA;'>🛫 {r.get('起飛時間','--:--')} | 🛬 {r.get('落地時間','--:--')}</p>
                     </div>
                 """, unsafe_allow_html=True)
