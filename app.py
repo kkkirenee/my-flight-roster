@@ -62,7 +62,7 @@ names = list(CREW_CONFIG.keys())
 current_idx = names.index(st.session_state.current_user)
 
 selected_name = st.selectbox(
-    "選擇組員班表：",
+    "小夥伴班表：",
     options=names,
     index=current_idx,
     key="user_selector"
