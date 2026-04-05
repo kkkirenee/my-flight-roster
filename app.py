@@ -33,7 +33,7 @@ st.markdown(f"""
     .stApp {{ background-color: {BG_BLACK}; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 強制鎖死月曆內部的顏色，防止藍色出現 */
+    /* 🚀 暴力鎖死月曆內部的顏色與大字 */
     .fc-event {{
         background-color: {user_color} !important;
         border-color: {user_color} !important;
@@ -75,17 +75,15 @@ with st.sidebar:
     st.subheader("📋 Flight Details")
     details_container = st.empty()
 
-# --- 3. 讀取資料 ---
+# --- 3. 數據讀取 ---
 calendar_events = []
 flight_db = pd.DataFrame()
 
 try:
-    # 讀取航班字典 CSV
     flight_db = pd.read_csv('my_flights.csv', encoding='utf-8-sig')
     flight_db.columns = flight_db.columns.str.strip()
     flight_db['班號'] = flight_db['班號'].astype(str).str.replace('CI', '').str.strip()
     
-    # 讀取 Excel 的對應分頁
     user_df = pd.read_excel('CAL_Roster.xlsx', sheet_name=st.session_state.current_user)
     user_df.columns = user_df.columns.str.strip()
     
@@ -99,7 +97,7 @@ try:
 except Exception as e:
     st.sidebar.error(f"找不到 {st.session_state.current_user} 的班表")
 
-# --- 4. 顯示介面 ---
+# --- 4. 顯示主畫面 ---
 st.title(f"💖 {st.session_state.current_user}")
 
 col1, col2 = st.columns([2.5, 0.1]) 
@@ -113,21 +111,28 @@ with col1:
         "displayEventTime": False,
         "dayMaxEvents": False
     }
-    # 🚀 妳最滿意的大字 CSS
+    # 🚀 妳最滿意的 1.8em 大字
     custom_css = ".fc-event-title { font-size: 1.8em !important; font-weight: 900 !important; text-align: center !important; color: white !important; }"
     state = calendar(events=calendar_events, options=calendar_options, custom_css=custom_css, key=f"cal_{st.session_state.current_user}")
 
-# --- 5. 詳情顯示邏輯 (修復資訊缺失 & 自動抓回程) ---
+# --- 5. 詳情顯示邏輯 (針對 Belle 修正過夜班) ---
 if state.get("eventClick"):
     clicked_fno = state["eventClick"]["event"]["title"].strip()
     
-    # 🚀 自動關聯邏輯：如果是過夜班/長班不找 +1，其餘雙數找奇數回程
-    stay_list = ["150", "130", "731", "721"]
+    # 🚀 根據使用者切換過夜班清單
+    if st.session_state.current_user == "Isabelle":
+        # Belle 的過夜班
+        stay_list = ["150", "771", "721", "761"]
+    else:
+        # Irene 與其他人的預設過夜班
+        stay_list = ["150", "130", "731", "721"]
+    
     search_list = [clicked_fno]
     
+    # 如果點擊的班號不在「過夜班」清單中，且是偶數去程，才自動抓回程
     if clicked_fno not in stay_list:
         try:
-            if int(clicked_fno) % 2 == 0: # 雙數去程找回程
+            if int(clicked_fno) % 2 == 0:
                 search_list.append(str(int(clicked_fno) + 1))
         except: pass
 
