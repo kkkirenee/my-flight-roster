@@ -9,14 +9,12 @@ tw_tz = pytz.timezone('Asia/Taipei')
 now_tw = datetime.now(tw_tz)
 today_str = now_tw.strftime("%Y-%m-%d")
 
-# 預設改為 Irene
 if "current_user" not in st.session_state:
     st.session_state.current_user = "Irene"
 
 # --- 1. 頁面風格與成員配置 ---
 st.set_page_config(page_title="CAL Crew Hub", page_icon="✈️", layout="wide")
 
-# 🚀 這裡已經幫妳改成字首大寫了，請確保 Excel 分頁名稱也叫 Irene 和 Isabelle
 CREW_CONFIG = {
     "Irene": {"color": "#F07699", "icon": "🌸"},
     "Isabelle": {"color": "#A28CF0", "icon": "👤"},
@@ -24,35 +22,76 @@ CREW_CONFIG = {
     "大飄": {"color": "#F0B476", "icon": "👤"}
 }
 
-# 防錯處理
 if st.session_state.current_user not in CREW_CONFIG:
     st.session_state.current_user = "Irene"
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
-BG_BLACK = "#0E0E0E"
 
+# 🎨 視覺強化：超級粉紅大字 CSS
 st.markdown(f"""
     <style>
-    .stApp {{ background-color: {BG_BLACK}; color: white; }}
+    /* 背景與基礎文字 */
+    .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
-    [data-testid="stSidebar"] {{ background-color: #151515; border-right: 2px solid {user_color}; }}
-    .fc-event {{ background-color: {user_color} !important; border-color: {user_color} !important; }}
-    .fc-event-title {{ font-size: 2.0em !important; font-weight: 900 !important; color: white !important; text-align: center !important; }}
-    .report-card {{ background: #1F1F1F; border-radius: 15px; padding: 22px; border: 2px solid {user_color}; margin-bottom: 15px; }}
-    .tag {{ background: {user_color}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: 800; }}
-    div.stButton > button {{ background-color: #262626; color: white; border: 1px solid #444; font-weight: 800; width: 100%; height: 3.5em; border-radius: 10px; }}
+    [data-testid="stSidebar"] {{ background-color: #151515; border-right: 3px solid {user_color}; }}
+    
+    /* 標題大字 */
+    h1 {{ 
+        font-size: 3.5rem !important; 
+        color: {user_color} !important; 
+        font-weight: 900 !important;
+        text-shadow: 2px 2px 10px {user_color}66;
+    }}
+    
+    /* 月曆內部的班號大字 */
+    .fc-event {{ 
+        background-color: {user_color} !important; 
+        border: none !important; 
+        border-radius: 8px !important;
+        padding: 5px !important;
+    }}
+    .fc-event-title {{ 
+        font-size: 2.2rem !important; /* 班號變超級大 */
+        font-weight: 900 !important; 
+        color: white !important; 
+        text-align: center !important; 
+    }}
+    
+    /* 側邊欄按鈕大字 */
+    div.stButton > button {{ 
+        background-color: #262626; 
+        color: white !important; 
+        border: 2px solid #444; 
+        font-size: 1.5rem !important; /* 按鈕名字變大 */
+        font-weight: 800 !important; 
+        width: 100%; 
+        height: 4em; 
+        border-radius: 15px;
+        margin-bottom: 10px;
+        transition: 0.3s;
+    }}
+    div.stButton > button:hover {{
+        border-color: {user_color};
+        color: {user_color} !important;
+        box-shadow: 0 0 15px {user_color}66;
+    }}
+    
+    /* 航班詳情卡片 */
+    .report-card {{ 
+        background: #1F1F1F; border-radius: 20px; padding: 25px; 
+        border: 3px solid {user_color}; margin-bottom: 20px; 
+    }}
+    .tag {{ background: {user_color}; color: white; padding: 5px 15px; border-radius: 8px; font-weight: 900; font-size: 1.1rem; }}
     </style>
     """, unsafe_allow_html=True)
 
 # --- 2. 數據讀取邏輯 ---
 calendar_events = []
 try:
-    # 讀取航班字典
     flight_db = pd.read_csv('my_flights.csv', encoding='utf-8-sig')
     flight_db.columns = flight_db.columns.str.strip()
     flight_db['班號'] = flight_db['班號'].astype(str).str.replace('CI', '').str.strip()
     
-    # 💡 讀取 Excel 指定分頁 (Irene / Isabelle)
     user_df = pd.read_excel('CAL_Roster.xlsx', sheet_name=st.session_state.current_user)
     user_df.columns = user_df.columns.str.strip()
     
@@ -70,11 +109,11 @@ try:
             "allDay": True
         })
 except Exception as e:
-    st.sidebar.warning(f"✨ 尚未在 Excel 中找到 {st.session_state.current_user} 的分頁數據")
+    st.sidebar.warning(f"✨ 尚未在 Excel 中找到 {st.session_state.current_user} 的分頁")
 
 # --- 3. 側邊欄導航 ---
 with st.sidebar:
-    st.markdown(f"<h2 style='color:{user_color}; text-align:center;'>✈️ CREW MENU</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='font-size:2rem !important; text-align:center;'>✈️ MENU</h1>", unsafe_allow_html=True)
     for name, config in CREW_CONFIG.items():
         if st.button(f"{config['icon']} {name}", key=f"btn_{name}"):
             st.session_state.current_user = name
@@ -84,10 +123,10 @@ with st.sidebar:
     details_placeholder = st.empty()
 
 # --- 4. 主頁面月曆 ---
-st.title(f"💖 {st.session_state.current_user}'S CALENDAR")
+st.title(f"💖 {st.session_state.current_user}")
 state = calendar(events=calendar_events, options={"initialDate": today_str, "contentHeight": "auto"}, key=f"cal_{st.session_state.current_user}")
 
-# --- 5. 詳情顯示與自動去回程邏輯 ---
+# --- 5. 詳情顯示 ---
 overnight_flights = ["130", "731", "150", "761", "721", "771"]
 target = None
 if state.get("eventClick"):
@@ -108,14 +147,14 @@ with details_placeholder.container():
                 st.markdown(f"""
                     <div class="report-card">
                         <div style='display:flex; justify-content:space-between; align-items:center;'>
-                            <h2 style='color:{user_color}; margin:0;'>CI {t}</h2>
+                            <h2 style='color:{user_color}; margin:0; font-size:2.5rem;'>CI {t}</h2>
                             <span class="tag">{tag}</span>
                         </div>
-                        <p style='margin:10px 0 5px 0; font-size:1.4rem; font-weight:700;'>📍 {r['目的地']}</p>
-                        <p style='font-size:1.1rem;'>⏰ 報到: <span style='color:{user_color}; font-weight:800;'>{r.get('報到時間','--:--')}</span></p>
-                        <hr style='border-color:#444; margin:15px 0;'>
-                        <p style='margin:0; font-size:1rem; color:#AAA;'>🛫 {r['起飛時間']} | 🛬 {r['落地時間']}</p>
+                        <p style='margin:15px 0 5px 0; font-size:1.8rem; font-weight:800;'>📍 {r['目的地']}</p>
+                        <p style='font-size:1.3rem;'>⏰ 報到: <span style='color:{user_color}; font-weight:900;'>{r.get('報到時間','--:--')}</span></p>
+                        <hr style='border-color:#444; margin:20px 0;'>
+                        <p style='margin:0; font-size:1.1rem; color:#AAA;'>🛫 {r['起飛時間']} | 🛬 {r['落地時間']}</p>
                     </div>
                 """, unsafe_allow_html=True)
     else:
-        st.write("✨ 點擊班號查看詳情")
+        st.write("✨ 點擊班號查看大圖詳情")
