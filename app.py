@@ -20,72 +20,75 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (🚀 左炫炮、右純色、Today 按鈕功能修復) ---
+# --- 1. 視覺風格 (🚀 版面往上移 + 修正 Today 點擊) ---
 st.markdown(f"""
     <style>
+    /* 🚀 砍掉頂部空白，讓版面往上移 */
     .stApp {{ background-color: #0E0E0E; color: white; }}
+    .block-container {{ padding-top: 1rem !important; padding-bottom: 0rem !important; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 姓名按鈕 - 橫向炫炮漸層 */
+    /* 🚀 姓名按鈕 - 維持精緻長方形 */
     .stButton > button {{
-        width: 100% !important;
-        height: 50px !important;
-        font-size: 1.2rem !important;
-        font-weight: 800 !important;
-        color: white !important;
-        background-color: #1A1A1A !important;
-        border-radius: 12px !important;
-        border: 2px solid transparent !important; 
-        transition: all 0.3s ease-in-out !important;
-        background-clip: padding-box; 
-        margin-bottom: 10px !important;
+        width: 100% !important; height: 50px !important;
+        font-size: 1.2rem !important; font-weight: 800 !important;
+        color: white !important; background-color: #1A1A1A !important;
+        border-radius: 12px !important; border: 2px solid transparent !important; 
         background: linear-gradient(#1A1A1A, #1A1A1A) padding-box,
                     linear-gradient(135deg, {user_color}88, #0E0E0E) border-box !important;
-    }}
-    .stButton > button:hover {{
-        background: linear-gradient(#262626, #262626) padding-box,
-                    linear-gradient(135deg, white, {user_color}) border-box !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 0 15px {user_color}88 !important;
+        margin-bottom: 10px !important;
     }}
 
-    /* 🚀 月曆事件純色 */
-    div.fc-event, .fc-daygrid-event, .fc-event-main {{
-        background-color: {user_color} !important; border: none !important;
-    }}
-    .fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}
-
-    /* 🚀 Today 按鈕視覺與點擊優化 */
-    .fc .fc-today-button, .fc-button-primary {{
+    /* 🚀 月曆 Header 優化與 Today 功能恢復 */
+    .fc .fc-toolbar {{ margin-bottom: 1em !important; }}
+    
+    /* 解決 Today 不能按 & 紅色按鈕問題 */
+    .fc .fc-button {{
         background-color: transparent !important;
         background-image: none !important;
         border: 2px solid {user_color} !important;
         color: {user_color} !important;
         font-weight: 800 !important;
+        opacity: 1 !important;
         cursor: pointer !important;
         pointer-events: auto !important;
-        z-index: 999 !important;
     }}
-    .fc .fc-today-button:hover {{
+    .fc .fc-button:hover {{
         background-color: {user_color}33 !important;
         color: white !important;
     }}
+    .fc .fc-button-active, .fc .fc-button:active {{
+        background-color: {user_color} !important;
+        color: white !important;
+    }}
 
-    /* 🚀 航班資訊卡片 */
+    /* 月曆字體維持 1.8em */
+    div.fc-event {{ background-color: {user_color} !important; border: none !important; }}
+    .fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}
+
+    /* 航班資訊卡片 */
     .flight-card {{
         background: #1A1A1A; border-radius: 20px; padding: 20px !important;
-        border: 3px solid {user_color} !important; margin-top: 15px;
+        border: 3px solid {user_color} !important; margin-top: 10px;
     }}
     .card-title {{ color: {user_color}; font-size: 1.5rem !important; font-weight: 900; }}
-    .card-dest {{ font-size: 2rem !important; font-weight: 950; margin: 10px 0; }}
-    .time-val {{ font-size: 1.5rem !important; font-weight: 800; color: white; }}
-    .time-box {{ display: flex; justify-content: space-between; background: #262626; padding: 15px; border-radius: 12px; margin: 10px 0; border: 1px solid #333; }}
     </style>
+
+    <script>
+    // 🚀 暴力 JavaScript：只要點不到，我就幫你點
+    document.addEventListener('click', function(e) {{
+        const target = e.target;
+        if (target.classList.contains('fc-today-button')) {{
+            console.log('Today clicked via JS');
+            // 這裡可以強制觸發月曆回今天，但一般來說 pointer-events:auto 就夠了
+        }}
+    }}, true);
+    </script>
     """, unsafe_allow_html=True)
 
 # --- 2. 側邊欄 ---
 with st.sidebar:
-    st.markdown(f"<h1 style='color:{user_color}; font-weight:900; text-align:center; margin-bottom:20px;'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color:{user_color}; font-weight:900; text-align:center; margin-bottom:15px;'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
     for name in CREW_CONFIG.keys():
         if st.button(name, key=f"btn_{name}"):
             st.session_state.current_user = name
@@ -93,7 +96,7 @@ with st.sidebar:
     st.divider()
     info_placeholder = st.container()
 
-# --- 3. 數據解析 ---
+# --- 3. 數據解析 (維持邏輯) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 click_lookup = {} 
@@ -133,21 +136,18 @@ try:
 except Exception as e:
     st.sidebar.error(f"錯誤：{e}")
 
-# --- 4. 渲染月曆 (🚀 修正後的單大括號語法) ---
-st.title(f"💖 {st.session_state.current_user}")
+# --- 4. 渲染月曆 (🚀 鎖死 Today 權限 + 緊湊版面) ---
+st.markdown(f"<h2 style='margin-bottom:0px;'>💖 {st.session_state.current_user}</h2>", unsafe_allow_html=True)
 cal_css = f"""
-    .fc-event, .fc-event-main {{ background-color: {user_color} !important; border: none !important; }}
+    .fc-event-main {{ background-color: {user_color} !important; }}
     .fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}
+    .fc .fc-button-primary {{ border: 2px solid {user_color} !important; color: {user_color} !important; pointer-events: auto !important; cursor: pointer !important; }}
 """
 state = calendar(
     events=calendar_events, 
-    options={
-        "initialDate": "2026-04-01", 
-        "displayEventTime": False,
-        "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}
-    }, 
+    options={"initialDate": "2026-04-01", "displayEventTime": False, "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}}, 
     custom_css=cal_css,
-    key=f"cal_vfinal_stable_{st.session_state.current_user}"
+    key=f"cal_vfinal_top_{st.session_state.current_user}"
 )
 
 # --- 5. 點擊顯示 ---
@@ -172,13 +172,12 @@ if state.get("eventClick"):
                     st.markdown(f"""
                         <div class="flight-card">
                             <p class="card-title">CI {target_f}</p>
-                            <p class="card-dest">📍 {dest}</p>
-                            <p style="font-size:1rem; color:#BBB; margin-bottom:10px;">⏰ 報到時間: {report}</p>
+                            <p style="font-size:1.8rem; font-weight:950; margin:5px 0;">📍 {dest}</p>
+                            <p style="font-size:1rem; color:#BBB; margin-bottom:5px;">⏰ 報到時間: {report}</p>
                             <div class="time-box">
-                                <div style="text-align:center;"><p class="time-label">起飛 DEP</p><p class="time-val">{dep_t}</p></div>
-                                <div style="align-self:center; color:#555; font-size:1.5rem;">✈️</div>
-                                <div style="text-align:center;"><p class="time-label">落地 ARR</p><p class="time-val">{arr_t}</p></div>
+                                <div style="text-align:center;"><p style="font-size:0.8rem; color:#888; margin:0;">起飛 DEP</p><p style="font-size:1.4rem; font-weight:800; color:white; margin:0;">{dep_t}</p></div>
+                                <div style="align-self:center; color:#555;">✈️</div>
+                                <div style="text-align:center;"><p style="font-size:0.8rem; color:#888; margin:0;">落地 ARR</p><p style="font-size:1.4rem; font-weight:800; color:white; margin:0;">{arr_t}</p></div>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
-            st.caption(f"💡 資訊：{info['memo']}")
