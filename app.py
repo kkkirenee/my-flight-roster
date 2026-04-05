@@ -12,26 +12,28 @@ tw_tz = pytz.timezone('Asia/Taipei')
 now_tw = datetime.now(tw_tz)
 today_str = now_tw.strftime("%Y-%m-%d")
 
-if "current_user" not in st.session_state:
-    st.session_state.current_user = "Irene"
-
-# 四姊妹配色與分頁對應 (精準對齊 Excel)
+# 🚀 這裡設定妳選單看到的名稱
 CREW_CONFIG = {
     "Irene": {"color": "#F07699", "icon": "🌸", "sheet": "Irene"},
     "Isabelle": {"color": "#A28CF0", "icon": "👤", "sheet": "Isabelle"},
-    "小米": {"color": "#76C9F0", "icon": "👤", "sheet": "小米"},
-    "大飄": {"color": "#F0B476", "icon": "👤", "sheet": "大飄"}
+    "Elaine": {"color": "#76C9F0", "icon": "👤", "sheet": "Elaine"},
+    "Bigpiao": {"color": "#F0B476", "icon": "👤", "sheet": "Bigpiao"}
 }
+
+# 初始化檢查，防止 KeyError
+if "current_user" not in st.session_state or st.session_state.current_user not in CREW_CONFIG:
+    st.session_state.current_user = "Irene"
+
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (1.8em 大字與配色強力鎖定) ---
+# --- 1. 視覺風格 (1.8em 大字與配色鎖定) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     [data-testid="stSidebar"] {{ background-color: #151515; border-right: 2px solid {user_color}; }}
     
-    /* 🚀 暴力鎖色：強制覆蓋月曆所有標籤 */
+    /* 🚀 強制鎖色：Event 標籤底色 */
     div.fc-event, div.fc-event-main, div.fc-daygrid-event {{
         background-color: {user_color} !important;
         border-color: {user_color} !important;
@@ -40,6 +42,7 @@ st.markdown(f"""
         border: none !important;
     }}
     
+    /* 🚀 1.8em 超大字標題 */
     .fc-event-title {{
         font-size: 1.8em !important; 
         font-weight: 900 !important; 
@@ -87,7 +90,9 @@ try:
     if os.path.exists("CAL_Roster.xlsx"):
         xl = pd.ExcelFile("CAL_Roster.xlsx")
         target_sheet_name = CREW_CONFIG[st.session_state.current_user]["sheet"]
-        real_sheet = next((s for s in xl.sheet_names if target_sheet_name in s), None)
+        
+        # 🚀 模糊匹配分頁名稱 (防止空格干擾)
+        real_sheet = next((s for s in xl.sheet_names if target_sheet_name.lower() in s.lower().strip()), None)
         
         if real_sheet:
             user_df = pd.read_excel(xl, sheet_name=real_sheet)
@@ -100,7 +105,7 @@ try:
                     f_no = str(row['班號']).strip()
                     memo = str(row.get('備註', '')).strip()
                     
-                    # 🚀 長班連線：抓備註日期 (如 4/10)
+                    # 長班連線邏輯
                     end_dt = start_dt
                     date_match = re.search(r'(\d+)/(\d+)', memo)
                     if date_match:
@@ -124,12 +129,12 @@ try:
 except Exception as e:
     st.sidebar.error(f"讀取錯誤：{str(e)}")
 
-# --- 4. 主月曆 (鎖死 1.8em 大字) ---
+# --- 4. 主月曆 ---
 st.title(f"💖 {st.session_state.current_user}'s Roster")
 state = calendar(
     events=calendar_events, 
     options={"initialDate": today_str, "contentHeight": "auto", "displayEventTime": False, "dayMaxEvents": False}, 
-    custom_css=f".fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}",
+    custom_css=".fc-event-title { font-size: 1.8em !important; font-weight: 900 !important; }",
     key=f"cal_{st.session_state.current_user}"
 )
 
