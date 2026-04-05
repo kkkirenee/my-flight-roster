@@ -56,7 +56,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. 側邊導覽 (SCHEDULE) ---
+# --- 2. 側邊導覽列 ---
 with st.sidebar:
     st.markdown(f"<h1 style='text-align:center; color:{user_color}; font-weight:900;'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
     st.write("---")
@@ -68,42 +68,44 @@ with st.sidebar:
     st.subheader("📋 Flight Details")
     details_container = st.empty()
 
-# --- 3. 數據讀取 (指定資料夾路徑) ---
+# --- 3. 數據讀取 (正確路徑：FlightCalendar) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 roster_lookup = {}
 
-# 檔案路徑設定
-BASE_DIR = "FlightCalender"
-ROSTER_PATH = os.path.join(BASE_DIR, "CAL_Roster.xlsx")
-FLIGHT_DB_PATH = "my_flights.csv" 
+# 🚀 修正路徑：FlightCalendar (注意拼寫)
+roster_filename = "CAL_Roster.xlsx"
+roster_folder = "FlightCalendar"
+roster_path = os.path.join(roster_folder, roster_filename)
 
 try:
-    # 讀取航班字典
-    flight_db = pd.read_csv(FLIGHT_DB_PATH, encoding='utf-8-sig')
+    # 讀取航班字典 (csv 通常放在跟 app.py 同一層)
+    flight_db = pd.read_csv("my_flights.csv", encoding='utf-8-sig')
     flight_db.columns = flight_db.columns.str.strip()
     flight_db['班號'] = flight_db['班號'].astype(str).str.replace('CI', '').str.strip()
     
-    # 讀取 Excel (.xlsx 格式)
-    user_df = pd.read_excel(ROSTER_PATH, sheet_name=st.session_state.current_user)
-    user_df.columns = user_df.columns.str.strip()
-    
-    for _, row in user_df.iterrows():
-        raw_date = row['日期']
-        # 轉換日期格式
-        clean_date = raw_date.strftime('%Y-%m-%d') if isinstance(raw_date, datetime) else str(raw_date).split()[0]
-        f_no = str(row['班號']).strip()
-        memo = str(row.get('備註', '')).strip()
+    # 讀取班表
+    if not os.path.exists(roster_path):
+        st.error(f"❌ 依然找不到檔案！目前路徑設定為: {roster_path}")
+    else:
+        user_df = pd.read_excel(roster_path, sheet_name=st.session_state.current_user)
+        user_df.columns = user_df.columns.str.strip()
         
-        # 存起來供點擊後顯示詳情
-        roster_lookup[clean_date] = {"fno": f_no, "memo": memo}
-        
-        calendar_events.append({
-            "title": f_no, "start": clean_date, "end": clean_date, "allDay": True,
-            "backgroundColor": user_color, "borderColor": user_color
-        })
+        for _, row in user_df.iterrows():
+            raw_date = row['日期']
+            clean_date = raw_date.strftime('%Y-%m-%d') if isinstance(raw_date, datetime) else str(raw_date).split()[0]
+            f_no = str(row['班號']).strip()
+            memo = str(row.get('備註', '')).strip()
+            
+            # 存入字典供點擊後讀取
+            roster_lookup[clean_date] = {"fno": f_no, "memo": memo}
+            
+            calendar_events.append({
+                "title": f_no, "start": clean_date, "end": clean_date, "allDay": True,
+                "backgroundColor": user_color, "borderColor": user_color
+            })
 except Exception as e:
-    st.sidebar.error(f"讀取失敗！請確認檔案位於 {ROSTER_PATH}")
+    st.sidebar.error(f"讀取過程出錯：{str(e)}")
 
 # --- 4. 主月曆 ---
 st.title(f"💖 {st.session_state.current_user}'s Roster")
@@ -117,18 +119,19 @@ calendar_options = {
     "dayMaxEvents": False
 }
 
+# 🚀 這是妳最喜歡的 1.8em 大粗體
 custom_css = ".fc-event-title { font-size: 1.8em !important; font-weight: 900 !important; text-align: center !important; color: white !important; }"
 
 state = calendar(events=calendar_events, options=calendar_options, custom_css=custom_css, key=f"cal_{st.session_state.current_user}")
 
-# --- 5. 詳情顯示邏輯 (根據備註拆解) ---
+# --- 5. 詳情顯示邏輯 (根據備註決定回程) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = roster_lookup.get(clicked_date, {})
     main_f = info.get("fno", "")
     memo = info.get("memo", "")
     
-    # 🚀 根據備註抓取所有班號 (例如 116 備註寫 117，會顯示兩張卡片)
+    # 🚀 根據備註抓取數字（回程班號）
     flight_list = [main_f]
     memo_numbers = re.findall(r'\d+', memo)
     for num in memo_numbers:
@@ -140,7 +143,7 @@ if state.get("eventClick"):
             match = flight_db[flight_db['班號'] == t]
             if not match.empty:
                 r = match.iloc[0]
-                # 判定 STAY / GO / RTN
+                # 判定標籤
                 is_stay = any(word in memo.lower() for word in ["過夜", "stay"])
                 tag = "STAY" if is_stay else ("GO" if t == flight_list[0] and len(flight_list) > 1 else ("RTN" if len(flight_list) > 1 else "FLY"))
                 
