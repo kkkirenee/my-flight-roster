@@ -11,7 +11,7 @@ st.set_page_config(page_title="CAL SCHEDULE", layout="wide")
 CREW_CONFIG = {
     "Irene": {"color": "#F07699", "sheet": "Irene"},
     "Isabelle": {"color": "#A28CF0", "sheet": "Isabelle"},
-    "Elaine": {"color": "#2D5A27", "sheet": "Elaine"},
+    "Elaine": {"color": "#76C9F0", "sheet": "Elaine"}, # 🚀 天藍色回歸！
     "Bigpiao": {"color": "#F0B476", "sheet": "Bigpiao"}
 }
 
@@ -20,20 +20,54 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (強制鎖死 1.8em，僅放大卡片) ---
+# --- 1. 視覺風格 (🚀 按鈕超級大 + 月曆還原精緻大字) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* 🚀 月曆字體：絕對鎖死 1.8em，不准變小 */
+    /* 🚀 姓名按鈕 - 針對你的要求：變大、醒目、漂亮 */
+    .stButton > button {{
+        width: 100% !important;
+        height: 4.5em !important;      /* 按鈕變得超級高大 */
+        font-size: 1.6rem !important;  /* 字體超級大 */
+        font-weight: 900 !important;   /* 超級粗 */
+        color: white !important;
+        background-color: #1A1A1A !important;
+        border-radius: 20px !important; /* 更圓潤 */
+        border: 3px solid transparent !important; /* 準備做漸層邊框 */
+        transition: all 0.3s ease-in-out !important;
+        background-clip: padding-box; /* 鎖住內容背景 */
+        position: relative;
+        margin-bottom: 15px !important;
+    }}
+    
+    /* 🚀 當前選中用戶的按鈕：強制顯示專屬顏色邊框與發光 */
+    .stButton > button:active, .stButton > button:focus, .stButton > button {{
+        background: linear-gradient(#1A1A1A, #1A1A1A) padding-box,
+                    linear-gradient(135deg, {user_color}, #0E0E0E) border-box !important;
+        border-color: transparent !important;
+        box-shadow: 0 0 25px {user_color}66 !important;
+        color: white !important;
+    }}
+    
+    /* 🚀 懸停效果：加上更強的發光和放大 */
+    .stButton > button:hover {{
+        background: linear-gradient(#262626, #262626) padding-box,
+                    linear-gradient(135deg, white, {user_color}) border-box !important;
+        transform: translateY(-3px) scale(1.03) !important;
+        box-shadow: 0 0 35px {user_color}AA !important;
+        color: white !important;
+    }}
+
+    /* 🚀 月曆：還原精緻大字 (1.8em) */
     div.fc-event {{
         background-color: {user_color} !important;
         border: none !important; border-radius: 0px !important; 
         min-height: 4.2em !important; display: flex !important; align-items: center !important;
     }}
     .fc-event-title {{
-        font-size: 1.8em !important; 
+        font-size: 1.8em !important; /* 🚀 還原到這個不嚇人的尺寸 */
         font-weight: 900 !important; 
         color: white !important; 
         text-align: center !important; 
@@ -42,79 +76,21 @@ st.markdown(f"""
     }}
     .fc-daygrid-day-frame {{ min-height: 120px !important; }}
 
-    /* 🚀 醒目按鈕：維持原本的高大粗 */
-    .stButton > button {{
-        width: 100%;
-        border-radius: 15px !important;
-        border: 2px solid #444 !important;
-        background-color: #1A1A1A !important;
-        color: #CCC !important;
-        transition: all 0.3s ease !important;
-        font-weight: 800 !important;
-        font-size: 1.2rem !important;
-        height: 3.8em !important;
-        margin-bottom: 10px !important;
-    }}
-    .stButton > button:hover {{
-        border: 2px solid {user_color} !important;
-        color: {user_color} !important;
-        box-shadow: 0 0 15px {user_color}88 !important;
-        background-color: #262626 !important;
-        transform: scale(1.02);
-    }}
-
-    /* 🚀 【航班資訊卡片】 - 依照圖片要求變大變漂亮 */
+    /* 🚀 航班資訊卡片 - 維持昨天最強大的暴力大 */
     .flight-card {{
-        background: #1A1A1A; 
-        border-radius: 20px; 
-        padding: 35px !important; /* 暴力增加內距 */
-        border: 4px solid {user_color} !important; 
-        margin-top: 20px;
+        background: #1A1A1A; border-radius: 25px; padding: 35px !important;
+        border: 5px solid {user_color} !important; margin-top: 20px;
     }}
-    .card-title {{ 
-        color: {user_color}; 
-        font-size: 2.2rem !important; /* 班號更大 */
-        font-weight: 900; 
-        margin: 0; 
-    }}
-    .card-dest {{ 
-        font-size: 3.5rem !important; /* 地點超級大 */
-        font-weight: 950; 
-        margin: 20px 0; 
-        line-height: 1;
-    }}
-    .card-info {{ 
-        font-size: 1.5rem !important; /* 報到時間變大 */
-        color: #BBB; 
-        margin-bottom: 15px; 
-    }}
-    
-    .time-box {{ 
-        display: flex; 
-        justify-content: space-between; 
-        background: #262626; 
-        padding: 20px; 
-        border-radius: 15px; 
-        margin: 15px 0; 
-        border: 1px solid #444; 
-    }}
-    .time-val {{ 
-        font-size: 2.2rem !important; /* 起降時間變大 */
-        font-weight: 800; 
-        color: white; 
-        margin: 0; 
-    }}
-    .time-label {{ 
-        font-size: 1.2rem; 
-        color: #888; 
-        margin-bottom: 5px; 
-    }}
+    .card-title {{ color: {user_color}; font-size: 2.3rem !important; font-weight: 950; margin: 0; }}
+    .card-dest {{ font-size: 3.5rem !important; font-weight: 950; margin: 20px 0; line-height: 1; }}
+    .time-box {{ display: flex; justify-content: space-between; background: #262626; padding: 20px; border-radius: 15px; margin: 15px 0; border: 2px solid #333; }}
+    .time-val {{ font-size: 2.3rem !important; font-weight: 800; color: white; margin: 0; }}
     </style>
     """, unsafe_allow_html=True)
 
 # --- 2. 側邊欄 ---
 with st.sidebar:
-    st.markdown(f"<h1 style='color:{user_color}; font-weight:900; text-align:center; margin-bottom:25px;'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color:{user_color}; font-weight:900; text-align:center; margin-bottom:30px;'>✈️ SCHEDULE</h1>", unsafe_allow_html=True)
     for name in CREW_CONFIG.keys():
         if st.button(name, key=f"btn_{name}"):
             st.session_state.current_user = name
@@ -122,7 +98,7 @@ with st.sidebar:
     st.divider()
     info_placeholder = st.container()
 
-# --- 3. 數據解析 (絕對不改) ---
+# --- 3. 數據解析 (完全不動) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 click_lookup = {} 
@@ -168,16 +144,16 @@ try:
 except Exception as e:
     st.sidebar.error(f"錯誤：{e}")
 
-# --- 4. 渲染月曆 (🚀 固定 Key 確保 CSS 渲染不縮小) ---
+# --- 4. 渲染月曆 (🚀 固定 Key 鎖死 1.8em 大字) ---
 st.title(f"💖 {st.session_state.current_user}")
 state = calendar(
     events=calendar_events, 
     options={"initialDate": "2026-04-01", "displayEventTime": False, "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""}}, 
     custom_css=f".fc-event-title {{ font-size: 1.8em !important; font-weight: 900 !important; }}",
-    key=f"cal_vfinal_fix_18em_{st.session_state.current_user}"
+    key=f"cal_vfinal_fix_v3_18em_{st.session_state.current_user}"
 )
 
-# --- 5. 點擊顯示 (暴力大卡片) ---
+# --- 5. 點擊顯示 (暴力大卡片不動) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = click_lookup.get(clicked_date)
@@ -201,11 +177,11 @@ if state.get("eventClick"):
                         <div class="flight-card">
                             <p class="card-title">CI {target_f}</p>
                             <p class="card-dest">📍 {dest}</p>
-                            <p class="card-info">⏰ 報到時間: {report}</p>
+                            <p style="font-size:1.3rem; color:#BBB; margin-bottom:15px;">⏰ 報到時間: {report}</p>
                             <div class="time-box">
-                                <div style="text-align:center;"><p class="time-label">起飛 DEP</p><p class="time-val">{dep_t}</p></div>
-                                <div style="align-self:center; color:#555; font-size:2rem;">✈️</div>
-                                <div style="text-align:center;"><p class="time-label">落地 ARR</p><p class="time-val">{arr_t}</p></div>
+                                <div style="text-align:center;"><p style="font-size:1.1rem; color:#888;">起飛 DEP</p><p class="time-val">{dep_t}</p></div>
+                                <div style="align-self:center; color:#555; font-size:2.5rem;">✈️</div>
+                                <div style="text-align:center;"><p style="font-size:1.1rem; color:#888;">落地 ARR</p><p class="time-val">{arr_t}</p></div>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
