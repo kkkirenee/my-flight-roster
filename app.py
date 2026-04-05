@@ -20,7 +20,7 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (配色鎖死 + 2.2em 大字) ---
+# --- 1. 視覺風格 (2.2em 大字 + 配色鎖死) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
@@ -47,20 +47,15 @@ with st.sidebar:
     st.divider()
     info_placeholder = st.container()
 
-# --- 3. 數據解析 (🚀 深度清洗 CSV) ---
+# --- 3. 數據解析 (🚀 支援 "落地時間" 辨識) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 click_lookup = {} 
 
 try:
     if os.path.exists("my_flights.csv"):
-        # 🚀 讀取並強制清洗所有空格
-        flight_db = pd.read_csv("my_flights.csv", encoding='utf-8-sig')
-        flight_db.columns = flight_db.columns.str.replace(' ', '').str.strip() # 清洗標題
-        flight_db = flight_db.apply(lambda x: x.str.strip() if x.dtype == "object" else x) # 清洗內容
-        flight_db = flight_db.fillna("")
-        
-        # 建立乾淨班號索引
+        flight_db = pd.read_csv("my_flights.csv", encoding='utf-8-sig').fillna("")
+        flight_db.columns = flight_db.columns.str.strip()
         flight_db['f_clean'] = flight_db['班號'].astype(str).str.upper().str.replace('CI', '').str.strip()
 
     xl = pd.ExcelFile("CAL_Roster.xlsx")
@@ -101,9 +96,9 @@ except Exception as e:
 
 # --- 4. 渲染月曆 ---
 st.title(f"💖 {st.session_state.current_user}")
-state = calendar(events=calendar_events, options={"initialDate": "2026-04-01", "displayEventTime": False}, key=f"cal_v130_{st.session_state.current_user}")
+state = calendar(events=calendar_events, options={"initialDate": "2026-04-01", "displayEventTime": False}, key=f"cal_final_{st.session_state.current_user}")
 
-# --- 5. 🚀 點擊顯示 (修正降落時間消失問題) ---
+# --- 5. 🚀 點擊顯示 (🚀 這裡會去抓 "落地時間") ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = click_lookup.get(clicked_date)
@@ -115,21 +110,27 @@ if state.get("eventClick"):
                 
                 if not match.empty:
                     r = match.iloc[0]
-                    # 🚀 這裡是最保險的抓取方式
-                    report = str(r.get('報到時間', '--:--'))
-                    dep_t = str(r.get('起飛時間', '--:--'))
-                    arr_t = str(r.get('降落時間', '--:--'))
-                    dest = str(r.get('目的地', '未知'))
+                    # 🚀 多重欄位匹配，確保 "落地時間" 會被抓到
+                    def get_v(keys):
+                        for k in keys:
+                            if k in r and str(r[k]).strip() != "": return str(r[k]).strip()
+                        return "--:--"
+
+                    dest = get_v(['目的地', '地點'])
+                    report = get_v(['報到時間', '報到'])
+                    dep_t = get_v(['起飛時間', '起飛'])
+                    # 🚀 把「落地時間」排在第一順位抓取！
+                    arr_t = get_v(['落地時間', '降落時間', '降落', 'ARR'])
 
                     st.markdown(f"""
                         <div class="flight-card">
                             <h2 style='color:{user_color}; margin:0;'>CI {target_f}</h2>
                             <p style='font-size:2.1rem; font-weight:950; margin:10px 0;'>📍 {dest}</p>
-                            <p style='font-size:1.1rem; margin-bottom:5px;'>⏰ 報到時間: {report if report != "" else "--:--"}</p>
+                            <p style='font-size:1.1rem; margin-bottom:5px;'>⏰ 報到時間: {report}</p>
                             <div class="time-box">
-                                <div style="text-align:center;"><p style="margin:0; font-size:0.8rem; color:#AAA;">起飛 DEP</p><p style="margin:0; font-size:1.4rem; font-weight:800;">{dep_t if dep_t != "" else "--:--"}</p></div>
+                                <div style="text-align:center;"><p style="margin:0; font-size:0.8rem; color:#AAA;">起飛 DEP</p><p style="margin:0; font-size:1.4rem; font-weight:800;">{dep_t}</p></div>
                                 <div style="align-self:center; color:#555;">✈️</div>
-                                <div style="text-align:center;"><p style="margin:0; font-size:0.8rem; color:#AAA;">降落 ARR</p><p style="margin:0; font-size:1.4rem; font-weight:800;">{arr_t if arr_t != "" else "--:--"}</p></div>
+                                <div style="text-align:center;"><p style="margin:0; font-size:0.8rem; color:#AAA;">落地 ARR</p><p style="margin:0; font-size:1.4rem; font-weight:800;">{arr_t}</p></div>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
