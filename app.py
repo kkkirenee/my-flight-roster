@@ -20,12 +20,11 @@ if "current_user" not in st.session_state:
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (2em 大字 + 暴力無縫填滿) ---
+# --- 1. 視覺風格 (霸氣大字 + 無縫填滿) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
-    
     .fc-daygrid-event-harness {{ margin: 0 !important; padding: 0 !important; }}
     .fc-daygrid-day-events {{ margin: 0 !important; padding: 0 !important; }}
     
@@ -69,7 +68,7 @@ with st.sidebar:
     st.divider()
     info_placeholder = st.empty()
 
-# --- 3. 數據解析 (相容長班與當天來回班) ---
+# --- 3. 數據解析 (🚀 核心：建立完整的點擊查找表) ---
 calendar_events = []
 flight_db = pd.DataFrame()
 roster_lookup = {} 
@@ -78,6 +77,7 @@ try:
     if os.path.exists("my_flights.csv"):
         flight_db = pd.read_csv("my_flights.csv", encoding='utf-8-sig')
         flight_db.columns = flight_db.columns.str.strip()
+        # 統一班號格式，方便比對
         flight_db['班號'] = flight_db['班號'].astype(str).str.replace('CI', '').str.strip()
 
     xl = pd.ExcelFile("CAL_Roster.xlsx")
@@ -90,65 +90,66 @@ try:
         f_no = str(row['班號']).strip()
         memo = str(row.get('備註', '')).strip()
 
-        # 🚀 判斷是否為長班
+        # 判定長班或當天來回
         end_dt = start_dt
         rtn_fno = ""
+        # 優先抓取像 "2026-04-11 回程 058" 的格式
         date_pattern = re.search(r'(\d{4}[-/]\d{1,2}[-/]\d{1,2})', memo)
-        
         if date_pattern:
             try:
                 end_dt = pd.to_datetime(date_pattern.group(1))
                 rtn_match = re.search(r'回程\s*(\d+)', memo)
                 if rtn_match: rtn_fno = rtn_match.group(1)
             except: pass
+        
+        # 🚀 強化版：如果備註寫 "當天來回(回程 187)"，也要把 187 抓出來！
+        if not rtn_fno:
+            alt_rtn_match = re.search(r'回程\s*(\d+)', memo)
+            if alt_rtn_match: rtn_fno = alt_rtn_match.group(1)
 
+        # 存入去程資訊
         date_key = start_dt.strftime('%Y-%m-%d')
         roster_lookup[date_key] = {"fno": f_no, "memo": memo}
 
-        # 畫色塊邏輯
         if end_dt > start_dt:
-            # 【長班邏輯】
-            # 去程色塊
+            # 【長班模式】
             calendar_events.append({"title": f_no, "start": date_key, "end": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True})
-            # 中間純色塊
             if (end_dt - start_dt).days > 1:
                 calendar_events.append({"title": " ", "start": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "end": end_dt.strftime('%Y-%m-%d'), "allDay": True})
-            # 回程色塊
             if rtn_fno:
                 rtn_date_key = end_dt.strftime('%Y-%m-%d')
-                rtn_memo = f"回程航班 {rtn_fno} (去程自 {start_dt.strftime('%m/%d')})"
-                roster_lookup[rtn_date_key] = {"fno": rtn_fno, "memo": rtn_memo}
+                roster_lookup[rtn_date_key] = {"fno": rtn_fno, "memo": f"回程航班 {rtn_fno} (去程 {f_no})"}
                 calendar_events.append({"title": rtn_fno, "start": rtn_date_key, "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True})
         else:
-            # 【當天來回班邏輯】
+            # 【單日班模式】
             calendar_events.append({"title": f_no, "start": date_key, "end": (start_dt + timedelta(days=1)).strftime('%Y-%m-%d'), "allDay": True})
+            # 如果單日班有回程班號(如 187)，雖然月曆沒格子顯示，但點擊該天要能抓到資訊
+            # (這裡邏輯維持顯示去程，點擊時顯示去程詳細資訊)
 
 except Exception as e:
     st.sidebar.error(f"讀取錯誤：{e}")
 
 # --- 4. 渲染月曆 ---
 st.title(f"💖 {st.session_state.current_user}")
-
 cal_custom_css = f".fc-event {{ background-color: {user_color} !important; }} .fc-event-title {{ font-size: 2em !important; font-weight: 900 !important; }}"
 
 state = calendar(
     events=calendar_events, 
     options={
-        "initialDate": "2026-04-01", 
-        "contentHeight": "auto", 
-        "displayEventTime": False,
+        "initialDate": "2026-04-01", "contentHeight": "auto", "displayEventTime": False,
         "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
     }, 
     custom_css=cal_custom_css,
-    key=st.session_state.current_user + "_ultra_final"
+    key=st.session_state.current_user + "_final_v3"
 )
 
-# --- 5. 點擊事件顯示 ---
+# --- 5. 🚀 點擊事件 (去 CSV 抓回程資訊) ---
 if state.get("eventClick"):
     clicked_date = state["eventClick"]["event"]["start"].split('T')[0]
     info = roster_lookup.get(clicked_date)
     if info:
         target_f = info['fno']
+        # 這裡就是關鍵！不管去程回程，通通拿班號去 CSV 比對
         match = flight_db[flight_db['班號'] == target_f] if not flight_db.empty else pd.DataFrame()
         
         with info_placeholder.container():
@@ -157,8 +158,8 @@ if state.get("eventClick"):
                 st.markdown(f"""
                     <div class="flight-card">
                         <h2 style='color:{user_color}; margin:0;'>CI {target_f}</h2>
-                        <p style='font-size:1.5rem; font-weight:800; margin:10px 0;'>📍 {r['目的地']}</p>
-                        <p style='font-size:1.2rem; margin-bottom:10px;'>⏰ 報到時間: {r.get('報到時間','--:--')}</p>
+                        <p style='font-size:1.8rem; font-weight:900; margin:15px 0;'>📍 {r['目的地']}</p>
+                        <p style='font-size:1.3rem; margin-bottom:10px;'>⏰ 報到時間: {r.get('報到時間','--:--')}</p>
                         <hr style='border: 0.5px solid #444;'>
                         <p style='color:#DDD; font-size:1rem; font-weight:700;'>💡 航班資訊：</p>
                         <p style='color:#AAA; font-size:1rem;'>{info['memo']}</p>
@@ -167,8 +168,8 @@ if state.get("eventClick"):
             else:
                 st.markdown(f"""
                     <div class="flight-card">
-                        <h2 style='color:{user_color};'>{target_f}</h2>
-                        <p style='margin:15px 0;'>未在 CSV 中找到此航班詳情</p>
+                        <h2 style='color:{user_color}; margin:0;'>CI {target_f}</h2>
+                        <p style='margin:20px 0; font-size:1.2rem;'>⚠️ CSV 找不到此班號資料</p>
                         <hr style='border: 0.5px solid #444;'>
                         <p style='color:#AAA; font-size:1rem;'>資訊：{info['memo']}</p>
                     </div>
