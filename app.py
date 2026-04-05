@@ -24,37 +24,41 @@ if "current_user" not in st.session_state or st.session_state.current_user not i
 
 user_color = CREW_CONFIG[st.session_state.current_user]["color"]
 
-# --- 1. 視覺風格 (暴力填滿縫隙) ---
+# --- 1. 視覺風格 (粗體 + 100% 填滿) ---
 st.markdown(f"""
     <style>
     .stApp {{ background-color: #0E0E0E; color: white; }}
     #MainMenu, footer, header {{ visibility: hidden; }}
     [data-testid="stSidebar"] {{ background-color: #151515; border-right: 2px solid {user_color}; }}
     
-    /* 🚀 核心：消除所有縫隙，讓色塊 100% 填滿格子 */
+    /* 🚀 讓月曆格子內完全沒有縫隙 */
     .fc-daygrid-event-harness {{
         margin: 0 !important;
         padding: 0 !important;
     }}
+    
+    /* 🚀 色塊填滿：直角、無邊距、強制寬度 */
     div.fc-event {{
         background-color: {user_color} !important;
         border: none !important;
         background: {user_color} !important;
-        border-radius: 0px !important; /* 長班用直角看起來更連貫 */
+        border-radius: 0px !important; 
         margin: 0 !important;
-        padding: 2px 0 !important;
-        min-height: 2.5em !important;
+        padding: 0 !important;
+        min-height: 2.8em !important;
         display: flex !important;
         align-items: center !important;
-        justify-content: center !important;
+        box-shadow: none !important;
     }}
     
+    /* 🚀 字體加粗鎖死：1.8em + 900 權重 */
     .fc-event-title {{
         font-size: 1.8em !important; 
-        font-weight: 900 !important; 
+        font-weight: 900 !important; /* 👈 加粗鎖定 */
         color: white !important;
         width: 100%;
         text-align: center;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.5); /* 增加文字立體感 */
     }}
 
     .report-card {{
@@ -94,7 +98,7 @@ try:
                 f_no = str(row['班號']).strip()
                 memo = str(row.get('備註', '')).strip()
                 
-                # 判定長班終點
+                # 判定長班終點 (EX: 4/11 或 4/30)
                 end_dt = start_dt
                 rtn_fno = ""
                 date_match = re.search(r'(\d+)/(\d+)', memo)
@@ -102,21 +106,21 @@ try:
                     try:
                         m, d = int(date_match.group(1)), int(date_match.group(2))
                         end_dt = datetime(start_dt.year, m, d)
-                        rtn_match = re.search(r'\d+/\d+\s+(\d+)', memo)
+                        # 抓取空格後的班號 (如 4/30 074)
+                        rtn_match = re.search(rf'{m}/{d}\s+(\d+)', memo)
                         if rtn_match: rtn_fno = rtn_match.group(1)
                     except: pass
 
-                # 1. 主長色塊 (確保全天事件)
+                # 1. 主長色塊：從去程日 7 號一路填到 11 號 (或 26 到 30)
                 calendar_events.append({
                     "title": f_no,
                     "start": start_dt.strftime('%Y-%m-%d'),
                     "end": (end_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
                     "allDay": True,
-                    "backgroundColor": user_color,
-                    "borderColor": user_color
+                    "backgroundColor": user_color
                 })
 
-                # 2. 回程日加蓋字樣
+                # 2. 終點日：在 11 號或 30 號那天強制加一個事件顯示回程班號
                 if end_dt > start_dt and rtn_fno:
                     calendar_events.append({
                         "title": rtn_fno,
@@ -143,6 +147,6 @@ calendar(
         "displayEventTime": False,
         "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
     }, 
-    custom_css=f".fc-event {{ background-color: {user_color} !important; }} .fc-event-title {{ font-size: 1.8em !important; }}",
+    custom_css=f".fc-event-title {{ font-weight: 900 !important; font-size: 1.8em !important; }}",
     key=f"cal_{st.session_state.current_user}"
 )
